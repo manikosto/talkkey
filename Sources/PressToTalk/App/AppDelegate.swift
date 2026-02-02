@@ -51,10 +51,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] _ in self?.updateStatusIcon() }
             .store(in: &cancellables)
 
+        // Listen for check updates notification from SwiftUI
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleCheckForUpdates),
+            name: .init("checkForUpdates"),
+            object: nil
+        )
+
         // Show main window on first launch or if no API key
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             MainWindowController.shared.show()
         }
+    }
+
+    @objc private func handleCheckForUpdates() {
+        updaterController.checkForUpdates(nil)
     }
 
     private func setupStatusItem() {

@@ -952,9 +952,7 @@ struct SettingsTab: View {
                                 .background(Color.white.opacity(0.1))
 
                             Button(action: {
-                                if let appDelegate = NSApp.delegate as? AppDelegate {
-                                    appDelegate.checkForUpdates()
-                                }
+                                NotificationCenter.default.post(name: .init("checkForUpdates"), object: nil)
                             }) {
                                 HStack {
                                     Image(systemName: "arrow.triangle.2.circlepath")
