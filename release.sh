@@ -66,7 +66,7 @@ cat > build/$APP_NAME.app/Contents/Info.plist << EOF
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>SUFeedURL</key>
-    <string>https://talkkey.io/appcast.xml</string>
+    <string>https://raw.githubusercontent.com/manikosto/talkkey/main/appcast.xml</string>
     <key>SUPublicEDKey</key>
     <string>q6Y0bCYUf7EIvydAODsGVuxi5J786SXSgRFiaAbgs4A=</string>
 </dict>

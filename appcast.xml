@@ -2,7 +2,7 @@
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
     <title>TalkKey Updates</title>
-    <link>https://talkkey.io/appcast.xml</link>
+    <link>https://raw.githubusercontent.com/manikosto/talkkey/main/appcast.xml</link>
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
 
@@ -24,7 +24,7 @@
         </ul>
       ]]></description>
       <enclosure
-          url="https://talkkey.io/releases/TalkKey-1.8.dmg"
+          url="https://github.com/manikosto/talkkey/releases/download/v1.8/TalkKey.dmg"
           sparkle:edSignature="/FuwRRAcjDNF3ssg+yOr/DZX5J3SZyXsEi7Ty3Hu4OSAWl7wCIE/14m7qOjtnOR0Ni03/3N1yMUtPGyJn3sTBA=="
           length="451875185"
           type="application/octet-stream"/>
