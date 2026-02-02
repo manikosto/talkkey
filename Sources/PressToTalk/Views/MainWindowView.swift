@@ -930,22 +930,44 @@ struct SettingsTab: View {
                     SectionHeader(title: "About", icon: "info.circle.fill")
 
                     SettingsCard {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("TalkKey")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(.white)
-                                Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.white.opacity(0.5))
+                        VStack(spacing: 0) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("TalkKey")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.white)
+                                    Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.white.opacity(0.5))
+                                }
+                                Spacer()
+                                Link(destination: URL(string: "https://github.com/manikosto/talkkey")!) {
+                                    Image(systemName: "arrow.up.right.square")
+                                        .foregroundColor(.white.opacity(0.4))
+                                }
                             }
-                            Spacer()
-                            Link(destination: URL(string: "https://github.com/manikosto/talkkey")!) {
-                                Image(systemName: "arrow.up.right.square")
-                                    .foregroundColor(.white.opacity(0.4))
+                            .padding(14)
+
+                            Divider()
+                                .background(Color.white.opacity(0.1))
+
+                            Button(action: {
+                                if let appDelegate = NSApp.delegate as? AppDelegate {
+                                    appDelegate.checkForUpdates()
+                                }
+                            }) {
+                                HStack {
+                                    Image(systemName: "arrow.triangle.2.circlepath")
+                                        .foregroundColor(.cyan)
+                                    Text("Check for Updates")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.white)
+                                    Spacer()
+                                }
                             }
+                            .buttonStyle(.plain)
+                            .padding(14)
                         }
-                        .padding(14)
                     }
                 }
 

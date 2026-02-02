@@ -1,66 +1,52 @@
 # TalkKey
 
-Простое macOS приложение для голосового ввода текста. Аналог SuperWhisper, но проще.
+A native macOS voice-to-text app powered by OpenAI Whisper. Press a hotkey, speak, and your words are instantly transcribed and pasted.
 
-## Как работает
+![TalkKey Screenshot](https://talkkey.io/screenshot.png)
 
-1. Зажми **правый ⌘ (Command)** — начнётся запись голоса
-2. Говори текст
-3. Отпусти **правый ⌘** — текст автоматически появится там, где стоит курсор
+## Features
 
-## Особенности
+- **Instant Transcription** — Hold Right Cmd, speak, release to transcribe and paste
+- **Offline Mode** — Uses WhisperKit for on-device transcription (no internet required)
+- **Cloud Mode** — OpenAI Whisper API for higher accuracy (requires API key)
+- **Translation** — Transcribe and translate to any language with one hotkey
+- **Review Mode** — Edit and restyle text before pasting
+- **Auto Updates** — Built-in update mechanism via Sparkle
 
-- Работает в любом приложении где есть текстовое поле
-- Текст вводится напрямую (не через буфер обмена)
-- Визуальный индикатор записи с waveform
-- Отмена записи по **Esc**
-- Menu bar приложение (не занимает место в Dock)
+## Hotkeys
 
-## Требования
+| Hotkey | Action |
+|--------|--------|
+| Right Cmd | Hold to record, release to transcribe & paste |
+| Right Option | Hold to record, release to open review window |
+| Fn | Hold to record with translation |
+| Esc | Cancel recording |
 
-- macOS 13.0+
-- OpenAI API ключ (для транскрипции через Whisper)
-- Разрешения:
-  - **Microphone** — для записи голоса
-  - **Accessibility** — для ввода текста в активное окно
+## Requirements
 
-## Установка
+- macOS 13.0 or later
+- Microphone permission
+- Accessibility permission (for auto-paste)
 
-1. Клонируй репозиторий
-2. Собери проект: `swift build`
-3. Запусти: `open PressToTalk.app`
-4. Добавь OpenAI API ключ в настройках
-5. Выдай разрешения (Microphone, Accessibility)
+## Installation
 
-## Технологии
+1. Download the latest DMG from [Releases](https://github.com/manikosto/talkkey/releases)
+2. Open the DMG and drag TalkKey to Applications
+3. Launch TalkKey and grant permissions
 
-- Swift / SwiftUI
-- AVAudioRecorder для записи
-- OpenAI Whisper API для транскрипции
-- CGEvent для прямого ввода текста
+## Modes
 
-## Структура проекта
+### Offline Mode (Free)
+Uses WhisperKit to run transcription locally on your Mac. Works without internet, completely private.
 
-```
-Sources/PressToTalk/
-├── App/
-│   ├── PressToTalkApp.swift    # Точка входа
-│   └── AppDelegate.swift       # NSStatusItem, setup
-├── Core/
-│   ├── HotkeyManager.swift     # Глобальные горячие клавиши
-│   ├── AudioRecorder.swift     # Запись аудио
-│   ├── TranscriptionService.swift  # Whisper API
-│   └── PasteboardManager.swift # Прямой ввод текста
-├── Services/
-│   ├── AppState.swift          # Состояние приложения
-│   ├── KeychainService.swift   # Хранение API ключа
-│   └── PermissionsManager.swift # Управление разрешениями
-└── Views/
-    ├── MainWindowView.swift    # Главное окно настройки
-    ├── MenuBarView.swift       # Меню в menu bar
-    └── RecordingOverlayView.swift # Индикатор записи
-```
+### Cloud Mode (Pro)
+Uses OpenAI Whisper API for faster and more accurate transcription. Requires your own API key.
 
-## Лицензия
+## License
 
-MIT
+Free tier includes 10 transcriptions per day. [Purchase a Pro license](https://talkkey.io) for unlimited use.
+
+## Links
+
+- [Website](https://talkkey.io)
+- [Download](https://github.com/manikosto/talkkey/releases/latest/download/TalkKey.dmg)

@@ -8,6 +8,28 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 1.9</title>
+      <sparkle:version>1.9</sparkle:version>
+      <sparkle:shortVersionString>1.9</sparkle:shortVersionString>
+      <pubDate>Sun, 02 Feb 2025 12:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 1.9</h2>
+        <ul>
+          <li>Added Check for Updates button in Settings</li>
+          <li>Dynamic version display from app bundle</li>
+          <li>Added GitHub link in About section</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v1.9/TalkKey.dmg"
+          sparkle:edSignature="ofQpMVK588SoUF5FPiYqFeFT65Zx6LMEqNegWcRda2Xn5Dc4DTK+uTht2CEG05rSOwBUMYNgmA0Hl2b7RLCdAA=="
+          length="452075381"
+          type="application/octet-stream"/>
+    </item>
+
+    <!-- Previous version -->
+    <item>
       <title>Version 1.8</title>
       <sparkle:version>1.8</sparkle:version>
       <sparkle:shortVersionString>1.8</sparkle:shortVersionString>
