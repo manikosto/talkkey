@@ -35,6 +35,11 @@ if [ -d ".build/release/PressToTalk_PressToTalk.bundle" ]; then
     echo "✅ Copied WhisperKit model bundle"
 fi
 
+# Copy Sparkle framework
+mkdir -p build/$APP_NAME.app/Contents/Frameworks
+cp -R .build/arm64-apple-macosx/release/Sparkle.framework build/$APP_NAME.app/Contents/Frameworks/
+echo "✅ Copied Sparkle framework"
+
 # Create Info.plist with new version
 cat > build/$APP_NAME.app/Contents/Info.plist << EOF
 <?xml version="1.0" encoding="UTF-8"?>
