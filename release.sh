@@ -40,6 +40,10 @@ mkdir -p build/$APP_NAME.app/Contents/Frameworks
 cp -R .build/arm64-apple-macosx/release/Sparkle.framework build/$APP_NAME.app/Contents/Frameworks/
 echo "✅ Copied Sparkle framework"
 
+# Add rpath for embedded frameworks
+install_name_tool -add_rpath "@executable_path/../Frameworks" build/$APP_NAME.app/Contents/MacOS/$APP_NAME
+echo "✅ Added Frameworks rpath"
+
 # Create Info.plist with new version
 cat > build/$APP_NAME.app/Contents/Info.plist << EOF
 <?xml version="1.0" encoding="UTF-8"?>
