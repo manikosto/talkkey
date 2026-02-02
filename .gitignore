@@ -1,0 +1,36 @@
+# Build
+.build/
+build/
+dist/
+*.zip
+*.dmg
+*.app
+
+# Whisper model (large, downloaded separately)
+Sources/PressToTalk/openai_whisper-small/
+
+# Website (separate)
+website/
+
+# Xcode
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+DerivedData/
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Sensitive
+*.p8
+AuthKey_*.p8
+
+# Large files (Whisper model is bundled via Swift Package)
+*.mlmodelc
+*.mlpackage
+
+# IDE
+.idea/
+.vscode/

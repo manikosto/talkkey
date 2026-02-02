@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>TalkKey Updates</title>
+    <link>https://talkkey.io/appcast.xml</link>
+    <description>Most recent changes with links to updates.</description>
+    <language>en</language>
+
+    <!-- Latest version -->
+    <item>
+      <title>Version 1.8</title>
+      <sparkle:version>1.8</sparkle:version>
+      <sparkle:shortVersionString>1.8</sparkle:shortVersionString>
+      <pubDate>Thu, 30 Jan 2025 18:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 1.8</h2>
+        <ul>
+          <li>Added automatic updates via Sparkle</li>
+          <li>Fixed translation feature for all languages</li>
+          <li>Improved microphone selection</li>
+          <li>Added silence detection to prevent transcription errors</li>
+          <li>Added microphone test feature</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://talkkey.io/releases/TalkKey-1.8.dmg"
+          sparkle:edSignature="/FuwRRAcjDNF3ssg+yOr/DZX5J3SZyXsEi7Ty3Hu4OSAWl7wCIE/14m7qOjtnOR0Ni03/3N1yMUtPGyJn3sTBA=="
+          length="451875185"
+          type="application/octet-stream"/>
+    </item>
+
+  </channel>
+</rss>
