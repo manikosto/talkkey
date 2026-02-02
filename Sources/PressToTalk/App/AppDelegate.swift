@@ -147,6 +147,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.terminate(nil)
     }
 
+    func checkForUpdates() {
+        updaterController.checkForUpdates(nil)
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         hotkeyManager?.cleanup()
     }

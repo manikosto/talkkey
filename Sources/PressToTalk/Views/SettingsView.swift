@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Sparkle
 
 struct SettingsView: View {
     @ObservedObject var appState: AppState
@@ -200,13 +201,27 @@ struct SettingsView: View {
             }
 
             Section {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("TalkKey v1.0")
+                VStack(alignment: .leading, spacing: 8) {
+                    let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+                    Text("TalkKey v\(version)")
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Text("A simple voice-to-text tool powered by OpenAI Whisper")
                         .font(.caption)
                         .foregroundColor(.secondary)
+
+                    Button(action: {
+                        if let appDelegate = NSApp.delegate as? AppDelegate {
+                            appDelegate.checkForUpdates()
+                        }
+                    }) {
+                        HStack {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Check for Updates")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
                 }
             }
         }
