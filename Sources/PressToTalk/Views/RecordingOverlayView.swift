@@ -5,7 +5,9 @@ struct RecordingOverlayView: View {
     @ObservedObject var appState: AppState
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 0) {
+            Spacer()
+            VStack(spacing: 8) {
             // Streaming text — above the recording bar
             if !appState.streamingText.isEmpty {
                 ScrollViewReader { proxy in
@@ -69,6 +71,8 @@ struct RecordingOverlayView: View {
             )
         }
         .frame(width: 520)
+        }
+        .frame(width: 520, height: 200)
     }
 }
 
@@ -127,7 +131,7 @@ class RecordingOverlayWindowController {
         hostingView?.translatesAutoresizingMaskIntoConstraints = false
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 48),
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 200),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false

@@ -67,9 +67,14 @@ class LocalTranscriptionService: ObservableObject {
         }
     }
 
+    // WhisperKit stores models in a nested path under downloadBase
+    private var whisperKitModelBase: URL {
+        modelDirectory.appendingPathComponent("models/argmaxinc/whisperkit-coreml")
+    }
+
     // Sync version for init
     private func isModelDownloadedSync(_ model: String) -> Bool {
-        let modelPath = modelDirectory.appendingPathComponent("openai_whisper-\(model)")
+        let modelPath = whisperKitModelBase.appendingPathComponent("openai_whisper-\(model)")
         return FileManager.default.fileExists(atPath: modelPath.path)
     }
 
@@ -87,7 +92,7 @@ class LocalTranscriptionService: ObservableObject {
     }
 
     func isModelDownloaded(_ model: String) -> Bool {
-        let modelPath = modelDirectory.appendingPathComponent("openai_whisper-\(model)")
+        let modelPath = whisperKitModelBase.appendingPathComponent("openai_whisper-\(model)")
         return FileManager.default.fileExists(atPath: modelPath.path)
     }
 
@@ -204,7 +209,7 @@ class LocalTranscriptionService: ObservableObject {
     }
 
     func deleteModel(_ model: String) throws {
-        let modelPath = modelDirectory.appendingPathComponent("openai_whisper-\(model)")
+        let modelPath = whisperKitModelBase.appendingPathComponent("openai_whisper-\(model)")
         if FileManager.default.fileExists(atPath: modelPath.path) {
             try FileManager.default.removeItem(at: modelPath)
         }

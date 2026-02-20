@@ -8,6 +8,27 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.3</title>
+      <sparkle:version>2.3</sparkle:version>
+      <sparkle:shortVersionString>2.3</sparkle:shortVersionString>
+      <pubDate>Thu, 20 Feb 2026 19:45:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.3</h2>
+        <ul>
+          <li>Fixed: previously downloaded models now correctly detected after update</li>
+          <li>Fixed: streaming transcription overlay now visible above recording bar</li>
+          <li>Fixed: model download reliability improved</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.3/TalkKey.dmg"
+          sparkle:edSignature="QwIpumjkX5xj9jwosYwWNYfiOmmDOz/jxaFYjPn/pDa78dgS0YBjJazOTFBU7dBKdSwAKvdDl8/atLR+/b+SCg=="
+          length="3326343"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.2</title>
       <sparkle:version>2.2</sparkle:version>
       <sparkle:shortVersionString>2.2</sparkle:shortVersionString>
