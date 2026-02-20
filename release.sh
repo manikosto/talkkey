@@ -29,11 +29,7 @@ mkdir -p build/$APP_NAME.app/Contents/Resources
 cp .build/release/PressToTalk build/$APP_NAME.app/Contents/MacOS/$APP_NAME
 chmod +x build/$APP_NAME.app/Contents/MacOS/$APP_NAME
 
-# Copy resource bundle with WhisperKit model
-if [ -d ".build/release/PressToTalk_PressToTalk.bundle" ]; then
-    cp -R .build/release/PressToTalk_PressToTalk.bundle build/$APP_NAME.app/Contents/Resources/
-    echo "✅ Copied WhisperKit model bundle"
-fi
+# Note: WhisperKit model is no longer bundled — downloaded on first launch
 
 # Copy Sparkle framework
 mkdir -p build/$APP_NAME.app/Contents/Frameworks

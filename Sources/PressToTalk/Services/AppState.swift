@@ -33,6 +33,7 @@ class AppState: ObservableObject {
     @Published var currentRecordingMode: CurrentRecordingMode = .directPaste
     @Published var audioLevels: [CGFloat] = Array(repeating: 0.05, count: 50)
     @Published var streamingText: String = ""
+    @Published var needsModelSetup = false
 
     // Permissions
     @Published var hasMicrophonePermission = false

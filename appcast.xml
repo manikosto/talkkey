@@ -8,6 +8,29 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.2</title>
+      <sparkle:version>2.2</sparkle:version>
+      <sparkle:shortVersionString>2.2</sparkle:shortVersionString>
+      <pubDate>Thu, 20 Feb 2026 19:30:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.2</h2>
+        <ul>
+          <li>Tiny app size: speech model downloaded on first launch (3MB vs 450MB)</li>
+          <li>Choose your model: Turbo, Fast, Balanced, Accurate, or Most Accurate</li>
+          <li>Streaming transcription: real-time text in overlay while recording</li>
+          <li>Streaming text now appears above the recording bar</li>
+          <li>Menu-bar only app (no Dock icon)</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.2/TalkKey.dmg"
+          sparkle:edSignature="YqmzZLm7LWzLBKhil4hx0j4CHY0AtbivuwodqA3ewc1r1+XkgiDCxMrirfuSr+vHnCbrT9R6nWJlWO7vWpH5DQ=="
+          length="3328214"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.1</title>
       <sparkle:version>2.1</sparkle:version>
       <sparkle:shortVersionString>2.1</sparkle:shortVersionString>

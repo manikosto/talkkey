@@ -21,9 +21,7 @@ let package = Package(
                 .product(name: "Sparkle", package: "Sparkle")
             ],
             path: "Sources/PressToTalk",
-            resources: [
-                .copy("openai_whisper-small")
-            ]
+            exclude: ["openai_whisper-small"]
         )
     ]
 )

@@ -115,12 +115,18 @@ struct HomeTab: View {
     @ObservedObject var appState: AppState
     @ObservedObject var settings: SettingsManager
     @ObservedObject var license = LicenseManager.shared
+    @ObservedObject var localService = LocalTranscriptionService.shared
 
     var body: some View {
         ScrollView {
             VStack(spacing: 28) {
                 // Hero section
                 HeroSection(appState: appState)
+
+                // Model setup banner
+                if settings.offlineModeEnabled && !localService.hasAnyModel {
+                    ModelSetupBanner()
+                }
 
                 // License / Pro status
                 VStack(alignment: .leading, spacing: 14) {
@@ -1092,17 +1098,23 @@ struct HeroSection: View {
     }
 
     private var isModelLoading: Bool {
-        SettingsManager.shared.offlineModeEnabled && localService.isModelLoading && !localService.isModelLoaded
+        SettingsManager.shared.offlineModeEnabled && (localService.isModelLoading || localService.isDownloading) && !localService.isModelLoaded
     }
 
     private var statusIcon: String {
+        if needsModel { return "arrow.down.circle" }
         if appState.isRecording { return "waveform" }
         if appState.isTranscribing { return "text.bubble.fill" }
         if !appState.hasMicrophonePermission { return "mic.slash.fill" }
         return "mic.fill"
     }
 
+    private var needsModel: Bool {
+        SettingsManager.shared.offlineModeEnabled && !localService.hasAnyModel
+    }
+
     private var statusText: String {
+        if needsModel { return "Model Required" }
         if isModelLoading { return "Preparing AI..." }
         if appState.isRecording { return "Recording..." }
         if appState.isTranscribing { return "Transcribing..." }
@@ -1111,6 +1123,7 @@ struct HeroSection: View {
     }
 
     private var statusSubtext: String {
+        if needsModel { return "Download a speech model in Settings" }
         if isModelLoading { return "Loading speech recognition model" }
         if appState.isRecording { return "Release to transcribe" }
         if appState.isTranscribing { return "Processing audio..." }
@@ -1119,6 +1132,7 @@ struct HeroSection: View {
     }
 
     private var statusColor: Color {
+        if needsModel { return .orange }
         if isModelLoading { return .cyan }
         if appState.isRecording { return .red }
         if appState.isTranscribing { return .blue }
@@ -1502,7 +1516,7 @@ struct TranscriptionModeSelector: View {
                                             .scaleEffect(0.7)
                                             .progressViewStyle(CircularProgressViewStyle(tint: .orange))
                                     } else {
-                                        Image(systemName: localTranscription.isModelLoaded ? "checkmark" : (localTranscription.hasBundledModel ? "checkmark.circle" : "arrow.down.circle"))
+                                        Image(systemName: localTranscription.isModelLoaded ? "checkmark" : (localTranscription.hasAnyModel ? "circle" : "arrow.down.circle"))
                                             .font(.system(size: 14))
                                             .foregroundColor(localTranscription.isModelLoaded ? .green : .orange)
                                     }
@@ -1512,7 +1526,7 @@ struct TranscriptionModeSelector: View {
                                     Text("Whisper Model")
                                         .font(.system(size: 13, weight: .medium))
                                         .foregroundColor(.white)
-                                    if localTranscription.isModelLoading {
+                                    if localTranscription.isModelLoading || localTranscription.isDownloading {
                                         Text("Preparing model...")
                                             .font(.system(size: 11))
                                             .foregroundColor(.orange)
@@ -1520,14 +1534,14 @@ struct TranscriptionModeSelector: View {
                                         Text(localTranscription.modelDisplayName[localTranscription.selectedModel] ?? localTranscription.selectedModel)
                                             .font(.system(size: 11))
                                             .foregroundColor(.green)
-                                    } else if localTranscription.hasBundledModel {
-                                        Text("Bundled - tap to activate")
+                                    } else if localTranscription.hasAnyModel {
+                                        Text("Not loaded — tap to activate")
                                             .font(.system(size: 11))
                                             .foregroundColor(.orange)
                                     } else {
-                                        Text("Not downloaded")
+                                        Text("No model — download below")
                                             .font(.system(size: 11))
-                                            .foregroundColor(.white.opacity(0.5))
+                                            .foregroundColor(.orange)
                                     }
                                 }
                             }
@@ -1713,16 +1727,12 @@ struct ModelSelectionCard: View {
         self._selectedModel = State(initialValue: localTranscription.selectedModel)
     }
 
-    private var isBundledModel: Bool {
-        selectedModel == LocalTranscriptionService.bundledModel
-    }
-
     private var isCurrentModelLoaded: Bool {
         localTranscription.isModelLoaded && localTranscription.selectedModel == selectedModel
     }
 
     private var needsDownload: Bool {
-        !isBundledModel && !localTranscription.isModelDownloaded(selectedModel)
+        !localTranscription.isModelDownloaded(selectedModel)
     }
 
     var body: some View {
@@ -1828,7 +1838,7 @@ struct ModelSelectionCard: View {
     private var statusIcon: String {
         if isCurrentModelLoaded {
             return "checkmark.circle.fill"
-        } else if isBundledModel || localTranscription.isModelDownloaded(selectedModel) {
+        } else if localTranscription.isModelDownloaded(selectedModel) {
             return "circle"
         } else {
             return "arrow.down.circle"
@@ -1838,7 +1848,7 @@ struct ModelSelectionCard: View {
     private var statusColor: Color {
         if isCurrentModelLoaded {
             return .green
-        } else if isBundledModel || localTranscription.isModelDownloaded(selectedModel) {
+        } else if localTranscription.isModelDownloaded(selectedModel) {
             return .blue
         } else {
             return .orange
@@ -1850,10 +1860,8 @@ struct ModelSelectionCard: View {
             return needsDownload ? "Downloading..." : "Loading..."
         } else if isCurrentModelLoaded {
             return "Active"
-        } else if isBundledModel {
-            return "Included • Tap Load to activate"
         } else if localTranscription.isModelDownloaded(selectedModel) {
-            return "Downloaded • Tap Load to activate"
+            return "Downloaded — Tap Load to activate"
         } else {
             return localTranscription.modelQualityDescription[selectedModel] ?? "Requires download"
         }
@@ -1869,6 +1877,133 @@ struct ModelSelectionCard: View {
                 loadError = error.localizedDescription
             }
             isLoading = false
+        }
+    }
+}
+
+// MARK: - Model Setup Banner
+
+struct ModelSetupBanner: View {
+    @ObservedObject var localService = LocalTranscriptionService.shared
+    @State private var selectedModel = "small"
+    @State private var isDownloading = false
+    @State private var error: String?
+
+    var body: some View {
+        VStack(spacing: 16) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.orange.opacity(0.2))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: "arrow.down.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.orange)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Speech Model Required")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white)
+                    Text("Choose and download a model to start transcribing")
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+                Spacer()
+            }
+
+            // Model picker
+            VStack(spacing: 10) {
+                ForEach(localService.availableModels, id: \.self) { model in
+                    Button(action: { selectedModel = model }) {
+                        HStack(spacing: 12) {
+                            Circle()
+                                .fill(selectedModel == model ? Color.orange : Color.white.opacity(0.1))
+                                .frame(width: 18, height: 18)
+                                .overlay(
+                                    Circle()
+                                        .fill(Color.white)
+                                        .frame(width: 8, height: 8)
+                                        .opacity(selectedModel == model ? 1 : 0)
+                                )
+
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(localService.modelDisplayName[model] ?? model)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(.white)
+                                Text(localService.modelQualityDescription[model] ?? "")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.white.opacity(0.4))
+                            }
+
+                            Spacer()
+
+                            Text(localService.modelSizeDescription[model] ?? "")
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundColor(.white.opacity(0.4))
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(selectedModel == model ? Color.orange.opacity(0.1) : Color.clear)
+                        )
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if let error = error {
+                Text(error)
+                    .font(.system(size: 11))
+                    .foregroundColor(.red)
+            }
+
+            Button(action: downloadModel) {
+                HStack(spacing: 8) {
+                    if isDownloading {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    } else {
+                        Image(systemName: "arrow.down.circle.fill")
+                            .font(.system(size: 14))
+                    }
+                    Text(isDownloading ? "Downloading..." : "Download \(localService.modelDisplayName[selectedModel] ?? selectedModel)")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(isDownloading ? Color.gray : Color.orange)
+                .cornerRadius(10)
+            }
+            .buttonStyle(.plain)
+            .disabled(isDownloading)
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.orange.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                )
+        )
+    }
+
+    private func downloadModel() {
+        isDownloading = true
+        error = nil
+        Task {
+            do {
+                try await localService.loadModel(selectedModel)
+                AppState.shared.needsModelSetup = false
+            } catch {
+                self.error = error.localizedDescription
+            }
+            isDownloading = false
         }
     }
 }

@@ -3,6 +3,7 @@ import WhisperKit
 
 enum LocalTranscriptionError: LocalizedError {
     case modelNotLoaded
+    case noModelInstalled
     case transcriptionFailed(String)
     case modelDownloadFailed(String)
 
@@ -10,6 +11,8 @@ enum LocalTranscriptionError: LocalizedError {
         switch self {
         case .modelNotLoaded:
             return "Whisper model is not loaded"
+        case .noModelInstalled:
+            return "No speech recognition model installed. Please select and download a model in Settings."
         case .transcriptionFailed(let message):
             return "Transcription failed: \(message)"
         case .modelDownloadFailed(let message):
@@ -23,21 +26,18 @@ class LocalTranscriptionService: ObservableObject {
     static let shared = LocalTranscriptionService()
 
     @Published var isModelLoaded = false
-    @Published var isModelLoading = false  // Loading model into memory
+    @Published var isModelLoading = false
     @Published var isDownloading = false
     @Published var downloadProgress: Double = 0
-    @Published var selectedModel: String = "small"  // Default to bundled model
+    @Published var selectedModel: String = "small"
 
     private var whisperKit: WhisperKit?
-
-    // The bundled model that comes with the app
-    static let bundledModel = "small"
 
     // Available models (sorted by size/quality)
     let availableModels = [
         "tiny",      // ~39MB, fastest
         "base",      // ~74MB, fast
-        "small",     // ~244MB, good balance (bundled)
+        "small",     // ~244MB, good balance
         "medium",    // ~769MB, high quality
         "large-v3"   // ~1.5GB, best quality
     ]
@@ -47,56 +47,30 @@ class LocalTranscriptionService: ObservableObject {
         [
             "tiny": "Turbo",
             "base": "Fast",
-            "small": "Balanced (Included)",
+            "small": "Balanced",
             "medium": "Accurate",
             "large-v3": "Most Accurate"
         ]
     }
 
     private init() {
-        // Load saved model preference, but validate it's available
-        if let savedModel = UserDefaults.standard.string(forKey: "selectedWhisperModel") {
-            // Only use saved model if it's bundled or downloaded
-            if savedModel == Self.bundledModel || isModelDownloadedSync(savedModel) {
-                selectedModel = savedModel
-            } else {
-                // Reset to bundled model if saved model not available
-                selectedModel = Self.bundledModel
-                UserDefaults.standard.set(Self.bundledModel, forKey: "selectedWhisperModel")
+        // Load saved model preference, validate it's downloaded
+        if let savedModel = UserDefaults.standard.string(forKey: "selectedWhisperModel"),
+           isModelDownloadedSync(savedModel) {
+            selectedModel = savedModel
+        } else {
+            // Find any downloaded model
+            if let firstAvailable = availableModels.first(where: { isModelDownloadedSync($0) }) {
+                selectedModel = firstAvailable
             }
-        }
-
-        // If bundled model exists, mark as loading immediately (will auto-load on startup)
-        if hasBundledModel {
-            isModelLoading = true
+            // Otherwise keep default "small" — user will need to download
         }
     }
 
-    // Sync version for init (can't use async in init)
+    // Sync version for init
     private func isModelDownloadedSync(_ model: String) -> Bool {
         let modelPath = modelDirectory.appendingPathComponent("openai_whisper-\(model)")
         return FileManager.default.fileExists(atPath: modelPath.path)
-    }
-
-    // Path to bundled model in app resources
-    var bundledModelPath: URL? {
-        // In app bundle: Resources/PressToTalk_PressToTalk.bundle/openai_whisper-small
-        if let bundlePath = Bundle.main.resourceURL?
-            .appendingPathComponent("PressToTalk_PressToTalk.bundle")
-            .appendingPathComponent("openai_whisper-small"),
-           FileManager.default.fileExists(atPath: bundlePath.path) {
-            return bundlePath
-        }
-        // Fallback: direct path (for CLI/debug builds)
-        if let executableURL = Bundle.main.executableURL {
-            let bundlePath = executableURL.deletingLastPathComponent()
-                .appendingPathComponent("PressToTalk_PressToTalk.bundle")
-                .appendingPathComponent("openai_whisper-small")
-            if FileManager.default.fileExists(atPath: bundlePath.path) {
-                return bundlePath
-            }
-        }
-        return nil
     }
 
     // Path for downloaded models (Application Support)
@@ -107,18 +81,12 @@ class LocalTranscriptionService: ObservableObject {
         return modelDir
     }
 
-    // Check if bundled model exists
-    var hasBundledModel: Bool {
-        guard let path = bundledModelPath else { return false }
-        return FileManager.default.fileExists(atPath: path.path)
+    // Check if ANY model is available (downloaded)
+    var hasAnyModel: Bool {
+        availableModels.contains { isModelDownloadedSync($0) }
     }
 
     func isModelDownloaded(_ model: String) -> Bool {
-        // Bundled model is always available
-        if model == Self.bundledModel && hasBundledModel {
-            return true
-        }
-        // Check downloaded models
         let modelPath = modelDirectory.appendingPathComponent("openai_whisper-\(model)")
         return FileManager.default.fileExists(atPath: modelPath.path)
     }
@@ -131,37 +99,22 @@ class LocalTranscriptionService: ObservableObject {
             return
         }
 
-        let isBundled = modelToLoad == Self.bundledModel && hasBundledModel
+        let isAlreadyDownloaded = isModelDownloaded(modelToLoad)
 
-        // Set appropriate loading state
-        if isBundled {
-            isModelLoading = true  // Loading bundled model into memory
+        if isAlreadyDownloaded {
+            isModelLoading = true
         } else {
-            isDownloading = true   // Downloading from internet
+            isDownloading = true
         }
         downloadProgress = 0
 
         do {
-            let config: WhisperKitConfig
-
-            // Use bundled model if available
-            if isBundled, let bundledPath = bundledModelPath {
-                print("Loading bundled model from: \(bundledPath.path)")
-                config = WhisperKitConfig(
-                    modelFolder: bundledPath.path,
-                    verbose: false,
-                    prewarm: true
-                )
-            } else {
-                // Download other models
-                print("Downloading model: \(modelToLoad)")
-                config = WhisperKitConfig(
-                    model: modelToLoad,
-                    downloadBase: modelDirectory,
-                    verbose: false,
-                    prewarm: true
-                )
-            }
+            let config = WhisperKitConfig(
+                model: modelToLoad,
+                downloadBase: modelDirectory,
+                verbose: false,
+                prewarm: true
+            )
 
             whisperKit = try await WhisperKit(config)
             isModelLoaded = true
@@ -178,14 +131,15 @@ class LocalTranscriptionService: ObservableObject {
         }
     }
 
-    // Alias for backward compatibility
     func downloadModel(_ model: String) async throws {
         try await loadModel(model)
     }
 
     func transcribe(audioURL: URL, translateToEnglish: Bool = false) async throws -> String {
         guard let whisperKit = whisperKit, isModelLoaded else {
-            // Try to load model first
+            if !hasAnyModel {
+                throw LocalTranscriptionError.noModelInstalled
+            }
             try await loadModel()
             guard let wk = self.whisperKit else {
                 throw LocalTranscriptionError.modelNotLoaded
@@ -199,37 +153,20 @@ class LocalTranscriptionService: ObservableObject {
     private func transcribeWith(_ whisperKit: WhisperKit, audioURL: URL, translateToEnglish: Bool = false) async throws -> String {
         let settings = SettingsManager.shared
 
-        // Use .translate task for instant English translation via Whisper
         let task: DecodingTask = translateToEnglish ? .translate : .transcribe
 
-        // For translation: don't set language - let Whisper auto-detect source and translate to English
-        // For transcription: use user's language preference
         let languageCode: String?
         if translateToEnglish {
-            languageCode = nil  // Auto-detect for translation
+            languageCode = nil
         } else {
             let language = settings.selectedLanguage
             languageCode = language == .auto ? nil : language.rawValue
         }
 
-        // Configure decoding options
         let options = DecodingOptions(
             task: task,
             language: languageCode
         )
-
-        // Debug
-        let debugMsg = "WHISPER: task=\(task), lang=\(String(describing: languageCode)), selectedLang=\(settings.selectedLanguage.rawValue)\n"
-        if let data = debugMsg.data(using: .utf8) {
-            let logURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("talkkey_debug.log")
-            if let handle = try? FileHandle(forWritingTo: logURL) {
-                handle.seekToEndOfFile()
-                handle.write(data)
-                handle.closeFile()
-            } else {
-                try? data.write(to: logURL)
-            }
-        }
 
         let results = try await whisperKit.transcribe(audioPath: audioURL.path, decodeOptions: options)
 
@@ -246,9 +183,8 @@ class LocalTranscriptionService: ObservableObject {
         }
 
         let settings = SettingsManager.shared
-        let languageCode: String?
         let language = settings.selectedLanguage
-        languageCode = language == .auto ? nil : language.rawValue
+        let languageCode: String? = language == .auto ? nil : language.rawValue
 
         let options = DecodingOptions(
             task: .transcribe,
@@ -273,7 +209,6 @@ class LocalTranscriptionService: ObservableObject {
             try FileManager.default.removeItem(at: modelPath)
         }
 
-        // If we deleted the current model, unload it
         if model == selectedModel {
             unloadModel()
         }
@@ -293,7 +228,7 @@ class LocalTranscriptionService: ObservableObject {
         [
             "tiny": "Fastest, basic quality",
             "base": "Fast, good quality",
-            "small": "Included - great balance",
+            "small": "Great balance of speed and quality",
             "medium": "More accurate, slower",
             "large-v3": "Best accuracy, slowest"
         ]

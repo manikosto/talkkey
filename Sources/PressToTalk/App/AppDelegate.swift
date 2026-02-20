@@ -22,16 +22,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             await PermissionsManager.shared.checkAllPermissions()
         }
 
-        // Auto-load bundled model immediately (it's included with the app)
+        // Auto-load previously downloaded model if available
         Task {
             let localService = LocalTranscriptionService.shared
-            // Always load bundled model if available and not loaded
-            if localService.hasBundledModel && !localService.isModelLoaded {
+            if localService.hasAnyModel && !localService.isModelLoaded {
+                localService.isModelLoading = true
                 do {
-                    try await localService.loadModel(LocalTranscriptionService.bundledModel)
-                    print("Bundled model loaded successfully")
+                    try await localService.loadModel()
+                    print("Model loaded successfully: \(localService.selectedModel)")
                 } catch {
-                    print("Failed to auto-load bundled model: \(error)")
+                    print("Failed to auto-load model: \(error)")
                 }
             }
         }
@@ -58,6 +58,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: .init("checkForUpdates"),
             object: nil
         )
+
+        // Check if model setup is needed (offline mode, no model downloaded)
+        Task {
+            let localService = LocalTranscriptionService.shared
+            if SettingsManager.shared.offlineModeEnabled && !localService.hasAnyModel {
+                AppState.shared.needsModelSetup = true
+            }
+        }
 
         // Show main window on first launch or if no API key
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
