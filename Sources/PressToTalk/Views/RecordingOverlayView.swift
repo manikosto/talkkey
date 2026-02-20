@@ -5,7 +5,33 @@ struct RecordingOverlayView: View {
     @ObservedObject var appState: AppState
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 8) {
+            // Streaming text — above the recording bar
+            if !appState.streamingText.isEmpty {
+                ScrollViewReader { proxy in
+                    ScrollView(.vertical, showsIndicators: false) {
+                        Text(appState.streamingText)
+                            .font(.system(size: 13))
+                            .foregroundColor(.white.opacity(0.9))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .id("streamingTextBottom")
+                    }
+                    .frame(maxHeight: 80)
+                    .onChange(of: appState.streamingText) {
+                        withAnimation {
+                            proxy.scrollTo("streamingTextBottom", anchor: .bottom)
+                        }
+                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.black.opacity(0.85))
+                )
+            }
+
+            // Recording bar
             HStack(spacing: 16) {
                 // Recording indicator
                 HStack(spacing: 8) {
@@ -37,35 +63,11 @@ struct RecordingOverlayView: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
-
-            // Streaming text
-            if !appState.streamingText.isEmpty {
-                Divider()
-                    .background(Color.white.opacity(0.2))
-
-                ScrollViewReader { proxy in
-                    ScrollView(.vertical, showsIndicators: false) {
-                        Text(appState.streamingText)
-                            .font(.system(size: 13))
-                            .foregroundColor(.white.opacity(0.9))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 8)
-                            .id("streamingTextBottom")
-                    }
-                    .frame(maxHeight: 80)
-                    .onChange(of: appState.streamingText) {
-                        withAnimation {
-                            proxy.scrollTo("streamingTextBottom", anchor: .bottom)
-                        }
-                    }
-                }
-            }
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.black.opacity(0.85))
+            )
         }
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.black.opacity(0.85))
-        )
         .frame(width: 520)
     }
 }
