@@ -5,37 +5,63 @@ struct RecordingOverlayView: View {
     @ObservedObject var appState: AppState
 
     var body: some View {
-        HStack(spacing: 16) {
-            // Recording indicator
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(appState.currentRecordingMode.indicatorColor)
-                    .frame(width: 8, height: 8)
-                Text(appState.currentRecordingMode.displayText)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white)
+        VStack(spacing: 0) {
+            HStack(spacing: 16) {
+                // Recording indicator
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(appState.currentRecordingMode.indicatorColor)
+                        .frame(width: 8, height: 8)
+                    Text(appState.currentRecordingMode.displayText)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white)
 
-                // Show target language for translation mode
-                if appState.currentRecordingMode == .translation {
-                    Text("→ \(SettingsManager.shared.targetLanguage.flag)")
-                        .font(.system(size: 13))
+                    // Show target language for translation mode
+                    if appState.currentRecordingMode == .translation {
+                        Text("→ \(SettingsManager.shared.targetLanguage.flag)")
+                            .font(.system(size: 13))
+                    }
+                }
+
+                // Waveform
+                WaveformView(levels: appState.audioLevels)
+                    .frame(width: 180, height: 24)
+
+                Spacer()
+
+                // Hints
+                HStack(spacing: 16) {
+                    HintView(label: "Stop", shortcut: "Release")
+                    HintView(label: "Cancel", shortcut: "Esc")
                 }
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
 
-            // Waveform
-            WaveformView(levels: appState.audioLevels)
-                .frame(width: 180, height: 24)
+            // Streaming text
+            if !appState.streamingText.isEmpty {
+                Divider()
+                    .background(Color.white.opacity(0.2))
 
-            Spacer()
-
-            // Hints
-            HStack(spacing: 16) {
-                HintView(label: "Stop", shortcut: "Release")
-                HintView(label: "Cancel", shortcut: "Esc")
+                ScrollViewReader { proxy in
+                    ScrollView(.vertical, showsIndicators: false) {
+                        Text(appState.streamingText)
+                            .font(.system(size: 13))
+                            .foregroundColor(.white.opacity(0.9))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 8)
+                            .id("streamingTextBottom")
+                    }
+                    .frame(maxHeight: 80)
+                    .onChange(of: appState.streamingText) {
+                        withAnimation {
+                            proxy.scrollTo("streamingTextBottom", anchor: .bottom)
+                        }
+                    }
+                }
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.black.opacity(0.85))
@@ -96,6 +122,7 @@ class RecordingOverlayWindowController {
 
         let contentView = RecordingOverlayView(appState: AppState.shared)
         hostingView = NSHostingView(rootView: contentView)
+        hostingView?.translatesAutoresizingMaskIntoConstraints = false
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 520, height: 48),

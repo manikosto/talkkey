@@ -4,20 +4,31 @@ import CoreAudio
 class AudioRecorder {
     static let shared = AudioRecorder()
 
-    private var audioRecorder: AVAudioRecorder?
-    private var levelTimer: Timer?
+    private var audioEngine: AVAudioEngine?
+    private var audioFile: AVAudioFile?
     private var recordingURL: URL?
     private var previousDefaultDevice: AudioDeviceID?
     private var peakLevel: Float = -160.0
     private var averageLevelSum: Float = 0
     private var levelSampleCount: Int = 0
 
+    // Live PCM buffer for streaming transcription (16kHz mono Float32)
+    private let samplesLock = NSLock()
+    private var _currentAudioSamples: [Float] = []
+
+    var currentAudioSamples: [Float] {
+        samplesLock.lock()
+        let copy = _currentAudioSamples
+        samplesLock.unlock()
+        return copy
+    }
+
     // Minimum average level (in dB) to consider as actual speech
     // Below this, we assume it's silence/noise and skip transcription
     private let minimumSpeechLevel: Float = -45.0
 
     var isRecording: Bool {
-        audioRecorder?.isRecording ?? false
+        audioEngine?.isRunning ?? false
     }
 
     var hasSufficientAudio: Bool {
@@ -38,6 +49,11 @@ class AudioRecorder {
         averageLevelSum = 0
         levelSampleCount = 0
 
+        // Reset audio samples buffer
+        samplesLock.lock()
+        _currentAudioSamples = []
+        samplesLock.unlock()
+
         // Set selected microphone as default input device
         if let selectedDeviceID = getSelectedAudioDeviceID() {
             // Save current default device to restore later
@@ -51,62 +67,113 @@ class AudioRecorder {
         }
 
         let tempDir = FileManager.default.temporaryDirectory
-        recordingURL = tempDir.appendingPathComponent("recording_\(Date().timeIntervalSince1970).m4a")
+        recordingURL = tempDir.appendingPathComponent("recording_\(Date().timeIntervalSince1970).wav")
 
         guard let recordingURL = recordingURL else {
             throw RecordingError.setupFailed
         }
 
-        // Settings for good quality recording that Whisper API accepts
-        let settings: [String: Any] = [
-            AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-            AVSampleRateKey: 44100.0,
-            AVNumberOfChannelsKey: 1,
-            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
-        ]
+        // Setup AVAudioEngine
+        let engine = AVAudioEngine()
+        let inputNode = engine.inputNode
+        let inputFormat = inputNode.outputFormat(forBus: 0)
 
-        audioRecorder = try AVAudioRecorder(url: recordingURL, settings: settings)
-        audioRecorder?.isMeteringEnabled = true
-        audioRecorder?.record()
+        // Target format: 16kHz mono Float32 (WhisperKit's native format)
+        guard let targetFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16000, channels: 1, interleaved: false) else {
+            throw RecordingError.setupFailed
+        }
 
-        // Start level monitoring on main thread
-        DispatchQueue.main.async {
-            self.levelTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
-                self?.updateAudioLevel()
+        // Create converter from input format to 16kHz mono
+        guard let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
+            throw RecordingError.setupFailed
+        }
+
+        // Create audio file for final transcription (16kHz mono WAV)
+        let audioFile = try AVAudioFile(forWriting: recordingURL, settings: targetFormat.settings)
+        self.audioFile = audioFile
+
+        // Install tap on input node
+        let bufferSize: AVAudioFrameCount = 4096
+        inputNode.installTap(onBus: 0, bufferSize: bufferSize, format: inputFormat) { [weak self] buffer, _ in
+            guard let self = self else { return }
+
+            // Convert to 16kHz mono
+            let frameCapacity = AVAudioFrameCount(Double(buffer.frameLength) * 16000.0 / inputFormat.sampleRate)
+            guard frameCapacity > 0, let convertedBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: frameCapacity) else {
+                return
+            }
+
+            var error: NSError?
+            let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
+                outStatus.pointee = .haveData
+                return buffer
+            }
+
+            converter.convert(to: convertedBuffer, error: &error, withInputFrom: inputBlock)
+
+            if error != nil {
+                return
+            }
+
+            guard convertedBuffer.frameLength > 0 else { return }
+
+            // Write to file
+            do {
+                try audioFile.write(from: convertedBuffer)
+            } catch {
+                print("Error writing audio file: \(error)")
+            }
+
+            // Extract Float32 samples
+            guard let channelData = convertedBuffer.floatChannelData else { return }
+            let frameCount = Int(convertedBuffer.frameLength)
+            let samples = Array(UnsafeBufferPointer(start: channelData[0], count: frameCount))
+
+            // Accumulate samples for streaming
+            self.samplesLock.lock()
+            self._currentAudioSamples.append(contentsOf: samples)
+            self.samplesLock.unlock()
+
+            // Calculate audio level from PCM samples
+            var sumSquares: Float = 0
+            var peak: Float = 0
+            for sample in samples {
+                let abs = Swift.abs(sample)
+                sumSquares += sample * sample
+                if abs > peak { peak = abs }
+            }
+            let rms = sqrt(sumSquares / Float(frameCount))
+
+            // Convert to dB
+            let rmsDB = rms > 0 ? 20 * log10(rms) : -160
+            let peakDB = peak > 0 ? 20 * log10(peak) : -160
+
+            // Track levels for silence detection
+            self.averageLevelSum += rmsDB
+            self.levelSampleCount += 1
+            if peakDB > self.peakLevel {
+                self.peakLevel = peakDB
+            }
+
+            // Convert dB to 0-1 range for UI
+            let normalizedLevel = max(0, (rmsDB + 50) / 50)
+            let cgLevel = CGFloat(min(1.0, max(0.05, normalizedLevel)))
+
+            Task { @MainActor in
+                AppState.shared.updateAudioLevel(cgLevel)
             }
         }
-    }
 
-    private func updateAudioLevel() {
-        guard let recorder = audioRecorder, recorder.isRecording else { return }
-
-        recorder.updateMeters()
-        let level = recorder.averagePower(forChannel: 0)
-        let peak = recorder.peakPower(forChannel: 0)
-
-        // Track levels for silence detection
-        averageLevelSum += level
-        levelSampleCount += 1
-        if peak > peakLevel {
-            peakLevel = peak
-        }
-
-        // Convert dB to 0-1 range
-        // Average power is typically -160 to 0 dB
-        let normalizedLevel = max(0, (level + 50) / 50)
-        let cgLevel = CGFloat(min(1.0, max(0.05, normalizedLevel)))
-
-        Task { @MainActor in
-            AppState.shared.updateAudioLevel(cgLevel)
-        }
+        engine.prepare()
+        try engine.start()
+        self.audioEngine = engine
     }
 
     func stopRecording() -> URL? {
-        levelTimer?.invalidate()
-        levelTimer = nil
-
-        audioRecorder?.stop()
-        audioRecorder = nil
+        audioEngine?.inputNode.removeTap(onBus: 0)
+        audioEngine?.stop()
+        audioEngine = nil
+        audioFile = nil
 
         // Restore previous default input device
         if let previousDevice = previousDefaultDevice {
@@ -122,11 +189,10 @@ class AudioRecorder {
     }
 
     func cancelRecording() {
-        levelTimer?.invalidate()
-        levelTimer = nil
-
-        audioRecorder?.stop()
-        audioRecorder = nil
+        audioEngine?.inputNode.removeTap(onBus: 0)
+        audioEngine?.stop()
+        audioEngine = nil
+        audioFile = nil
 
         // Restore previous default input device
         if let previousDevice = previousDefaultDevice {
@@ -138,6 +204,11 @@ class AudioRecorder {
             try? FileManager.default.removeItem(at: url)
         }
         recordingURL = nil
+
+        // Clear samples buffer
+        samplesLock.lock()
+        _currentAudioSamples = []
+        samplesLock.unlock()
 
         Task { @MainActor in
             AppState.shared.resetAudioLevels()

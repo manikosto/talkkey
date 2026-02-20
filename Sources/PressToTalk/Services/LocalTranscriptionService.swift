@@ -240,6 +240,28 @@ class LocalTranscriptionService: ObservableObject {
         return result.text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    func transcribePartial(audioSamples: [Float]) async throws -> String {
+        guard let whisperKit = whisperKit, isModelLoaded else {
+            throw LocalTranscriptionError.modelNotLoaded
+        }
+
+        let settings = SettingsManager.shared
+        let languageCode: String?
+        let language = settings.selectedLanguage
+        languageCode = language == .auto ? nil : language.rawValue
+
+        let options = DecodingOptions(
+            task: .transcribe,
+            language: languageCode
+        )
+
+        let results = try await whisperKit.transcribe(audioArray: audioSamples, decodeOptions: options)
+        guard let result = results.first else {
+            return ""
+        }
+        return result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     func unloadModel() {
         whisperKit = nil
         isModelLoaded = false

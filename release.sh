@@ -70,6 +70,8 @@ cat > build/$APP_NAME.app/Contents/Info.plist << EOF
     <string>13.0</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>$APP_NAME needs microphone access to record your voice for transcription.</string>
+    <key>LSUIElement</key>
+    <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSPrincipalClass</key>
