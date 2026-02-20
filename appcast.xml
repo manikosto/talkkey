@@ -8,6 +8,27 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.1</title>
+      <sparkle:version>2.1</sparkle:version>
+      <sparkle:shortVersionString>2.1</sparkle:shortVersionString>
+      <pubDate>Thu, 20 Feb 2026 19:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.1</h2>
+        <ul>
+          <li>Streaming transcription: real-time partial text in overlay while recording</li>
+          <li>App is now menu-bar only (no Dock icon)</li>
+          <li>Improved audio engine for better WhisperKit integration</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.1/TalkKey.dmg"
+          sparkle:edSignature="DpROuO7MuW027TmlIzIUuMei3vhcPB2i81ee4AKWGOJyLyDtsXEbTOcEwMelRLYlJdkzBjsVbkuNAYDlXtqwDQ=="
+          length="450978401"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.0</title>
       <sparkle:version>2.0</sparkle:version>
       <sparkle:shortVersionString>2.0</sparkle:shortVersionString>
