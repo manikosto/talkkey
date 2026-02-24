@@ -35,13 +35,19 @@ struct RecordingOverlayView: View {
 
 struct WaveformView: View {
     let levels: [CGFloat]
+    private let barCount = 24
+
+    private var visibleLevels: [CGFloat] {
+        Array(levels.suffix(barCount))
+    }
 
     var body: some View {
         HStack(spacing: 2) {
-            ForEach(0..<levels.count, id: \.self) { index in
+            ForEach(0..<visibleLevels.count, id: \.self) { index in
                 RoundedRectangle(cornerRadius: 2)
                     .fill(Color.white.opacity(0.8))
-                    .frame(width: 2, height: max(2, levels[index] * 20))
+                    .frame(width: 2, height: max(2, visibleLevels[index] * 20))
+                    .animation(.linear(duration: 0.08), value: visibleLevels[index])
             }
         }
     }
