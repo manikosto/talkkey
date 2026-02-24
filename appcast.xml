@@ -8,6 +8,26 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.4</title>
+      <sparkle:version>2.4</sparkle:version>
+      <sparkle:shortVersionString>2.4</sparkle:shortVersionString>
+      <pubDate>Mon, 24 Feb 2026 12:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.4</h2>
+        <ul>
+          <li>Minimal recording overlay: clean pill with pulsing blue dot and waveform</li>
+          <li>Removed streaming text overlay for a distraction-free experience</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.4/TalkKey.dmg"
+          sparkle:edSignature="cLGVIVfUPshouqMWfCv1No/TU9Sc3VgyXAhL97PhVfalOQO8Fe899QjgrG3rMqOYEG5aTcHhIBnN6BvbGDHTBg=="
+          length="3492077"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.3</title>
       <sparkle:version>2.3</sparkle:version>
       <sparkle:shortVersionString>2.3</sparkle:shortVersionString>
