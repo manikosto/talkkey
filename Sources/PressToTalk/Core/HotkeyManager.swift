@@ -25,10 +25,6 @@ class HotkeyManager {
     private var recordingStartTime: Date?
     private var isCurrentlyRecording = false  // Local tracking to avoid main actor issues
 
-    // Streaming transcription
-    private var streamingTask: Task<Void, Never>?
-    private var isStreamTranscribing = false
-
     private let audioRecorder = AudioRecorder.shared
     private let transcriptionService = TranscriptionService.shared
 
@@ -216,11 +212,6 @@ class HotkeyManager {
 
                 AppState.shared.isRecording = true
                 RecordingOverlayWindowController.shared.show()
-
-                // Start streaming transcription for offline mode only
-                if SettingsManager.shared.offlineModeEnabled {
-                    self.startStreamingTranscription()
-                }
             } catch {
                 print("Recording error: \(error)")
                 showNotification(title: "Recording Error", body: error.localizedDescription)
@@ -229,9 +220,6 @@ class HotkeyManager {
     }
 
     private func stopRecordingAndTranscribe() {
-        // Cancel streaming transcription
-        stopStreamingTranscription()
-
         Task { @MainActor in
             guard AppState.shared.isRecording else { return }
 
@@ -242,7 +230,6 @@ class HotkeyManager {
             let hasSufficientAudio = audioRecorder.hasSufficientAudio
 
             AppState.shared.isRecording = false
-            AppState.shared.streamingText = ""
             RecordingOverlayWindowController.shared.hide()
 
             // Track usage time
@@ -296,66 +283,16 @@ class HotkeyManager {
 
     private func cancelRecording() {
         isCurrentlyRecording = false
-        stopStreamingTranscription()
         Task { @MainActor in
             guard AppState.shared.isRecording else { return }
 
             AppState.shared.isRecording = false
-            AppState.shared.streamingText = ""
             isPrimaryHotkeyPressed = false
             isSecondaryHotkeyPressed = false
             UsageTracker.shared.cancelRecording()
             audioRecorder.cancelRecording()
             RecordingOverlayWindowController.shared.hide()
         }
-    }
-
-    private func startStreamingTranscription() {
-        streamingTask = Task.detached { [weak self] in
-            // Wait initial 2s for enough audio to accumulate
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-
-            while !Task.isCancelled {
-                guard let self = self else { return }
-
-                // Prevent overlapping transcriptions
-                guard !self.isStreamTranscribing else {
-                    try? await Task.sleep(nanoseconds: 500_000_000)
-                    continue
-                }
-
-                let samples = self.audioRecorder.currentAudioSamples
-
-                // Need at least 0.5s of audio (8000 samples at 16kHz)
-                guard samples.count > 8000 else {
-                    try? await Task.sleep(nanoseconds: 1_000_000_000)
-                    continue
-                }
-
-                self.isStreamTranscribing = true
-                do {
-                    let localService = await LocalTranscriptionService.shared
-                    let text = try await localService.transcribePartial(audioSamples: samples)
-                    if !Task.isCancelled && !text.isEmpty {
-                        await MainActor.run {
-                            AppState.shared.streamingText = text
-                        }
-                    }
-                } catch {
-                    // Silently ignore streaming errors — final transcription is authoritative
-                }
-                self.isStreamTranscribing = false
-
-                // Wait before next streaming attempt
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-            }
-        }
-    }
-
-    private func stopStreamingTranscription() {
-        streamingTask?.cancel()
-        streamingTask = nil
-        isStreamTranscribing = false
     }
 
     func cleanup() {

@@ -3,76 +3,33 @@ import AppKit
 
 struct RecordingOverlayView: View {
     @ObservedObject var appState: AppState
+    @State private var isPulsing = false
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack {
             Spacer()
-            VStack(spacing: 8) {
-            // Streaming text — above the recording bar
-            if !appState.streamingText.isEmpty {
-                ScrollViewReader { proxy in
-                    ScrollView(.vertical, showsIndicators: false) {
-                        Text(appState.streamingText)
-                            .font(.system(size: 13))
-                            .foregroundColor(.white.opacity(0.9))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 10)
-                            .id("streamingTextBottom")
-                    }
-                    .frame(maxHeight: 80)
-                    .onChange(of: appState.streamingText) {
-                        withAnimation {
-                            proxy.scrollTo("streamingTextBottom", anchor: .bottom)
-                        }
-                    }
-                }
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.black.opacity(0.85))
-                )
-            }
-
-            // Recording bar
-            HStack(spacing: 16) {
-                // Recording indicator
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill(appState.currentRecordingMode.indicatorColor)
-                        .frame(width: 8, height: 8)
-                    Text(appState.currentRecordingMode.displayText)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white)
-
-                    // Show target language for translation mode
-                    if appState.currentRecordingMode == .translation {
-                        Text("→ \(SettingsManager.shared.targetLanguage.flag)")
-                            .font(.system(size: 13))
-                    }
-                }
+            HStack(spacing: 10) {
+                // Pulsing blue circle
+                Circle()
+                    .fill(Color.blue)
+                    .frame(width: 10, height: 10)
+                    .scaleEffect(isPulsing ? 1.3 : 1.0)
+                    .opacity(isPulsing ? 0.7 : 1.0)
+                    .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isPulsing)
+                    .onAppear { isPulsing = true }
 
                 // Waveform
                 WaveformView(levels: appState.audioLevels)
-                    .frame(width: 180, height: 24)
-
-                Spacer()
-
-                // Hints
-                HStack(spacing: 16) {
-                    HintView(label: "Stop", shortcut: "Release")
-                    HintView(label: "Cancel", shortcut: "Esc")
-                }
+                    .frame(width: 100, height: 20)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
             .background(
-                RoundedRectangle(cornerRadius: 12)
+                Capsule()
                     .fill(Color.black.opacity(0.85))
             )
         }
-        .frame(width: 520)
-        }
-        .frame(width: 520, height: 200)
+        .frame(width: 180, height: 60)
     }
 }
 
@@ -82,32 +39,10 @@ struct WaveformView: View {
     var body: some View {
         HStack(spacing: 2) {
             ForEach(0..<levels.count, id: \.self) { index in
-                RoundedRectangle(cornerRadius: 1)
+                RoundedRectangle(cornerRadius: 2)
                     .fill(Color.white.opacity(0.8))
-                    .frame(width: 2, height: max(2, levels[index] * 24))
+                    .frame(width: 2, height: max(2, levels[index] * 20))
             }
-        }
-    }
-}
-
-struct HintView: View {
-    let label: String
-    let shortcut: String
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Text(label)
-                .font(.system(size: 12))
-                .foregroundColor(.white.opacity(0.7))
-            Text(shortcut)
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundColor(.white.opacity(0.5))
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.white.opacity(0.1))
-                )
         }
     }
 }
@@ -131,7 +66,7 @@ class RecordingOverlayWindowController {
         hostingView?.translatesAutoresizingMaskIntoConstraints = false
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 200),
+            contentRect: NSRect(x: 0, y: 0, width: 180, height: 60),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
