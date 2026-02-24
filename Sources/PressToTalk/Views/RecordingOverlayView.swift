@@ -9,12 +9,13 @@ struct RecordingOverlayView: View {
         VStack {
             Spacer()
             HStack(spacing: 10) {
-                // Pulsing blue circle
+                // Pulsing coral/red-orange circle
                 Circle()
-                    .fill(Color.blue)
+                    .fill(Color(red: 1.0, green: 0.35, blue: 0.25))
                     .frame(width: 10, height: 10)
+                    .shadow(color: Color(red: 1.0, green: 0.35, blue: 0.25).opacity(0.6), radius: isPulsing ? 6 : 2)
                     .scaleEffect(isPulsing ? 1.3 : 1.0)
-                    .opacity(isPulsing ? 0.7 : 1.0)
+                    .opacity(isPulsing ? 0.75 : 1.0)
                     .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isPulsing)
                     .onAppear { isPulsing = true }
 
@@ -25,8 +26,14 @@ struct RecordingOverlayView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .background(
-                Capsule()
-                    .fill(Color.black.opacity(0.85))
+                ZStack {
+                    // Glass background
+                    Capsule()
+                        .fill(.ultraThinMaterial)
+                    // Subtle border for glass edge
+                    Capsule()
+                        .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
+                }
             )
         }
         .frame(width: 180, height: 60)

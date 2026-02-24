@@ -8,6 +8,27 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.6</title>
+      <sparkle:version>2.6</sparkle:version>
+      <sparkle:shortVersionString>2.6</sparkle:shortVersionString>
+      <pubDate>Mon, 24 Feb 2026 14:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.6</h2>
+        <ul>
+          <li>Glass-style recording overlay with macOS vibrancy effect</li>
+          <li>New coral recording indicator (distinct from other apps)</li>
+          <li>Glowing pulse animation on recording dot</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.6/TalkKey.dmg"
+          sparkle:edSignature="6l3GMgNPbp+nX7wmPKPm1v3gqRbw6ssqvolbAC9tFb5LMG8OM4zyW/MJCNEjrKifNbDIckyAqEh2bNle+lV3Bg=="
+          length="3495303"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.5</title>
       <sparkle:version>2.5</sparkle:version>
       <sparkle:shortVersionString>2.5</sparkle:shortVersionString>
