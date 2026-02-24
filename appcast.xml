@@ -8,6 +8,26 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.5</title>
+      <sparkle:version>2.5</sparkle:version>
+      <sparkle:shortVersionString>2.5</sparkle:shortVersionString>
+      <pubDate>Mon, 24 Feb 2026 13:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.5</h2>
+        <ul>
+          <li>Fixed waveform overflow in recording overlay</li>
+          <li>Smooth waveform animation restored</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.5/TalkKey.dmg"
+          sparkle:edSignature="GqO8Pp5OBB6mqVH6JXUxfx5WOs35SERzHArxgJxi/vzpF6oHJdFCaKl/qJK0TDn2HdF7Xm/UwKTtsdjXIacNBQ=="
+          length="3493330"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.4</title>
       <sparkle:version>2.4</sparkle:version>
       <sparkle:shortVersionString>2.4</sparkle:shortVersionString>
