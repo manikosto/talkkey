@@ -54,7 +54,6 @@ struct WaveformView: View {
                 RoundedRectangle(cornerRadius: 2)
                     .fill(Color.white.opacity(0.8))
                     .frame(width: 2, height: max(2, visibleLevels[index] * 20))
-                    .animation(.linear(duration: 0.08), value: visibleLevels[index])
             }
         }
     }

@@ -1,5 +1,6 @@
 import AVFoundation
 import CoreAudio
+import SwiftUI
 
 class AudioRecorder {
     static let shared = AudioRecorder()
@@ -11,6 +12,7 @@ class AudioRecorder {
     private var peakLevel: Float = -160.0
     private var averageLevelSum: Float = 0
     private var levelSampleCount: Int = 0
+    private var lastLevelUpdateTime: CFTimeInterval = 0
 
     // Live PCM buffer for streaming transcription (16kHz mono Float32)
     private let samplesLock = NSLock()
@@ -155,12 +157,18 @@ class AudioRecorder {
                 self.peakLevel = peakDB
             }
 
-            // Convert dB to 0-1 range for UI
-            let normalizedLevel = max(0, (rmsDB + 50) / 50)
-            let cgLevel = CGFloat(min(1.0, max(0.05, normalizedLevel)))
+            // Convert dB to 0-1 range for UI (throttled to ~30fps)
+            let now = CACurrentMediaTime()
+            if now - self.lastLevelUpdateTime >= 0.033 {
+                self.lastLevelUpdateTime = now
+                let normalizedLevel = max(0, (rmsDB + 50) / 50)
+                let cgLevel = CGFloat(min(1.0, max(0.05, normalizedLevel)))
 
-            Task { @MainActor in
-                AppState.shared.updateAudioLevel(cgLevel)
+                Task { @MainActor in
+                    withAnimation(.linear(duration: 0.06)) {
+                        AppState.shared.updateAudioLevel(cgLevel)
+                    }
+                }
             }
         }
 

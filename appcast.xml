@@ -8,6 +8,26 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.7</title>
+      <sparkle:version>2.7</sparkle:version>
+      <sparkle:shortVersionString>2.7</sparkle:shortVersionString>
+      <pubDate>Thu, 27 Feb 2026 12:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.7</h2>
+        <ul>
+          <li>Smooth waveform animation — throttled to 30fps with unified animation</li>
+          <li>No more visual glitches on M4 and other Apple Silicon</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.7/TalkKey.dmg"
+          sparkle:edSignature="LfhMxZ7vi3wzTqDYdZKhkNEFsWtdalw3S0+dMh9S/54Wev3YNgIs8R3dIQM8fz5xke3xSpeI525WNdyszmqtBA=="
+          length="3494383"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.6</title>
       <sparkle:version>2.6</sparkle:version>
       <sparkle:shortVersionString>2.6</sparkle:shortVersionString>
