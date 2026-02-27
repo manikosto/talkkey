@@ -18,13 +18,13 @@
         <ul>
           <li>Multilingual auto-detect: speak in any language, TalkKey recognizes it automatically</li>
           <li>Switch between languages mid-recording — no need to change settings</li>
-          <li>Default language changed to Auto-detect for new users</li>
+          <li>Existing users automatically migrated to Auto-detect mode</li>
         </ul>
       ]]></description>
       <enclosure
           url="https://github.com/manikosto/talkkey/releases/download/v2.8/TalkKey.dmg"
-          sparkle:edSignature="tj/x6dCt5UcxlZSP1Q3WcZ3lzC5S4Y+PZsgSR1t/HR2QbcNmgFK2wrDsZjHqVaYtAExvJ9l178SSxK+NV0mrCg=="
-          length="3495203"
+          sparkle:edSignature="7NNP31pHmAM36X4oVRqtQkZsCpPsymzawILhkbFyW6yWnI7vsP8BaoT5DcuhVevkwTGtfm5Ctf6A6G6yWa8nBg=="
+          length="3495712"
           type="application/octet-stream"/>
     </item>
 

@@ -68,6 +68,12 @@ class SettingsManager: ObservableObject {
     @Published var availableMicrophones: [AudioDevice] = []
 
     init() {
+        // One-time migration: switch existing users to auto-detect
+        if !UserDefaults.standard.bool(forKey: "didMigrateToAutoDetect") {
+            UserDefaults.standard.set("auto", forKey: languageKey)
+            UserDefaults.standard.set(true, forKey: "didMigrateToAutoDetect")
+        }
+
         let langRaw = UserDefaults.standard.string(forKey: languageKey) ?? "auto"
         self.selectedLanguage = WhisperLanguage(rawValue: langRaw) ?? .auto
 
