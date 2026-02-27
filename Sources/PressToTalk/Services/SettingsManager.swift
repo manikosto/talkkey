@@ -68,8 +68,8 @@ class SettingsManager: ObservableObject {
     @Published var availableMicrophones: [AudioDevice] = []
 
     init() {
-        let langRaw = UserDefaults.standard.string(forKey: languageKey) ?? "en"
-        self.selectedLanguage = WhisperLanguage(rawValue: langRaw) ?? .english
+        let langRaw = UserDefaults.standard.string(forKey: languageKey) ?? "auto"
+        self.selectedLanguage = WhisperLanguage(rawValue: langRaw) ?? .auto
 
         // Default to offline mode (bundled model) for new users
         if UserDefaults.standard.object(forKey: offlineModeKey) == nil {

@@ -251,23 +251,26 @@ class HotkeyManager {
             do {
                 // For translation mode, pass translateToLanguage
                 let translateToLanguage = currentMode == .translation ? SettingsManager.shared.targetLanguage : nil
-                let text = try await transcriptionService.transcribe(audioURL: audioURL, translateTo: translateToLanguage)
+                let result = try await transcriptionService.transcribe(audioURL: audioURL, translateTo: translateToLanguage)
+                let text = result.text
 
                 if !text.isEmpty {
                     // Track stats
                     UsageTracker.shared.recordTranscription(text: text, recordingDuration: recordingDuration)
                     LicenseManager.shared.recordTranscription()
 
+                    // Log detected language
+                    if let lang = result.detectedLanguage {
+                        print("Detected language: \(lang)")
+                    }
+
                     switch currentMode {
                     case .directPaste:
-                        // Direct paste like before
                         PasteboardManager.shared.pasteText(text)
                         HistoryManager.shared.add(text)
                     case .review:
-                        // Show review window
                         ReviewWindowController.shared.show(text: text)
                     case .translation:
-                        // Direct paste translated text
                         PasteboardManager.shared.pasteText(text)
                         HistoryManager.shared.add(text)
                     }

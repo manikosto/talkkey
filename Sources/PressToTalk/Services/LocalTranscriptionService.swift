@@ -140,7 +140,12 @@ class LocalTranscriptionService: ObservableObject {
         try await loadModel(model)
     }
 
-    func transcribe(audioURL: URL, translateToEnglish: Bool = false) async throws -> String {
+    struct TranscribeResult {
+        let text: String
+        let detectedLanguage: String?
+    }
+
+    func transcribe(audioURL: URL, translateToEnglish: Bool = false) async throws -> TranscribeResult {
         guard let whisperKit = whisperKit, isModelLoaded else {
             if !hasAnyModel {
                 throw LocalTranscriptionError.noModelInstalled
@@ -155,7 +160,7 @@ class LocalTranscriptionService: ObservableObject {
         return try await transcribeWith(whisperKit, audioURL: audioURL, translateToEnglish: translateToEnglish)
     }
 
-    private func transcribeWith(_ whisperKit: WhisperKit, audioURL: URL, translateToEnglish: Bool = false) async throws -> String {
+    private func transcribeWith(_ whisperKit: WhisperKit, audioURL: URL, translateToEnglish: Bool = false) async throws -> TranscribeResult {
         let settings = SettingsManager.shared
 
         let task: DecodingTask = translateToEnglish ? .translate : .transcribe
@@ -179,7 +184,10 @@ class LocalTranscriptionService: ObservableObject {
             throw LocalTranscriptionError.transcriptionFailed("No results returned")
         }
 
-        return result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return TranscribeResult(
+            text: result.text.trimmingCharacters(in: .whitespacesAndNewlines),
+            detectedLanguage: result.language
+        )
     }
 
     func transcribePartial(audioSamples: [Float]) async throws -> String {

@@ -16,13 +16,22 @@ class TranscriptionService {
         networkMonitor.start(queue: DispatchQueue.global(qos: .utility))
     }
 
-    func transcribe(audioURL: URL, translateTo: TranslationLanguage? = nil) async throws -> String {
+    struct TranscribeResult {
+        let text: String
+        let detectedLanguage: String?
+    }
+
+    func transcribe(audioURL: URL, translateTo: TranslationLanguage? = nil) async throws -> TranscribeResult {
         let settings = SettingsManager.shared
 
         // Step 1: Transcribe (offline or online with auto-fallback)
-        var result: String
+        var text: String
+        var detectedLanguage: String?
+
         if settings.offlineModeEnabled {
-            result = try await transcribeOffline(audioURL: audioURL, translateToEnglish: translateTo == .english)
+            let offlineResult = try await transcribeOffline(audioURL: audioURL, translateToEnglish: translateTo == .english)
+            text = offlineResult.text
+            detectedLanguage = offlineResult.detectedLanguage
         } else {
             // Cloud mode - but check if offline fallback is available
             let localService = await LocalTranscriptionService.shared
@@ -31,16 +40,20 @@ class TranscriptionService {
             if !isNetworkAvailable && canFallbackToOffline {
                 // No internet, but we have local model - auto fallback
                 print("No internet connection, falling back to offline transcription")
-                result = try await transcribeOffline(audioURL: audioURL, translateToEnglish: translateTo == .english)
+                let offlineResult = try await transcribeOffline(audioURL: audioURL, translateToEnglish: translateTo == .english)
+                text = offlineResult.text
+                detectedLanguage = offlineResult.detectedLanguage
             } else {
                 // Try cloud transcription
                 do {
-                    result = try await transcribeOnline(audioURL: audioURL)
+                    text = try await transcribeOnline(audioURL: audioURL)
                 } catch let error as URLError where error.code == .notConnectedToInternet || error.code == .networkConnectionLost {
                     // Network error - try offline fallback if available
                     if canFallbackToOffline {
                         print("Network error, falling back to offline transcription")
-                        result = try await transcribeOffline(audioURL: audioURL, translateToEnglish: translateTo == .english)
+                        let offlineResult = try await transcribeOffline(audioURL: audioURL, translateToEnglish: translateTo == .english)
+                        text = offlineResult.text
+                        detectedLanguage = offlineResult.detectedLanguage
                     } else {
                         throw error
                     }
@@ -49,23 +62,20 @@ class TranscriptionService {
         }
 
         // Step 2: Translate if requested
-        // - For offline mode: English translation is handled by Whisper's translate task above
-        // - For cloud mode: always use TranslationService for any language
         if let targetLanguage = translateTo {
-            // Skip translation only if offline mode AND target is English (already translated by Whisper)
             let skipTranslation = settings.offlineModeEnabled && targetLanguage == .english
             if !skipTranslation {
-                result = try await TranslationService.shared.translate(
-                    text: result,
+                text = try await TranslationService.shared.translate(
+                    text: text,
                     to: targetLanguage
                 )
             }
         }
 
-        return result
+        return TranscribeResult(text: text, detectedLanguage: detectedLanguage)
     }
 
-    private func transcribeOffline(audioURL: URL, translateToEnglish: Bool = false) async throws -> String {
+    private func transcribeOffline(audioURL: URL, translateToEnglish: Bool = false) async throws -> LocalTranscriptionService.TranscribeResult {
         let localService = await LocalTranscriptionService.shared
         let result = try await localService.transcribe(audioURL: audioURL, translateToEnglish: translateToEnglish)
 
