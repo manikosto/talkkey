@@ -183,6 +183,11 @@ class AudioRecorder {
         audioEngine = nil
         audioFile = nil
 
+        // Clear samples buffer
+        samplesLock.lock()
+        _currentAudioSamples = []
+        samplesLock.unlock()
+
         // Restore previous default input device
         if let previousDevice = previousDefaultDevice {
             _ = setAudioInputDevice(previousDevice)

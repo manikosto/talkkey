@@ -3,7 +3,6 @@ import AppKit
 
 struct RecordingOverlayView: View {
     @ObservedObject var appState: AppState
-    @State private var isPulsing = false
 
     var body: some View {
         VStack {
@@ -13,11 +12,10 @@ struct RecordingOverlayView: View {
                 Circle()
                     .fill(Color(red: 1.0, green: 0.35, blue: 0.25))
                     .frame(width: 10, height: 10)
-                    .shadow(color: Color(red: 1.0, green: 0.35, blue: 0.25).opacity(0.6), radius: isPulsing ? 6 : 2)
-                    .scaleEffect(isPulsing ? 1.3 : 1.0)
-                    .opacity(isPulsing ? 0.75 : 1.0)
-                    .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isPulsing)
-                    .onAppear { isPulsing = true }
+                    .shadow(color: Color(red: 1.0, green: 0.35, blue: 0.25).opacity(0.6), radius: appState.isRecording ? 6 : 2)
+                    .scaleEffect(appState.isRecording ? 1.3 : 1.0)
+                    .opacity(appState.isRecording ? 0.75 : 1.0)
+                    .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: appState.isRecording)
 
                 // Waveform
                 WaveformView(levels: appState.audioLevels)
@@ -64,18 +62,24 @@ class RecordingOverlayWindowController {
     static let shared = RecordingOverlayWindowController()
 
     private var window: NSWindow?
-    private var hostingView: NSHostingView<RecordingOverlayView>?
 
     @MainActor
     func show() {
-        if window != nil {
-            window?.orderFront(nil)
+        if let window = window {
+            // Reposition in case screen changed
+            if let screen = NSScreen.main {
+                let screenFrame = screen.visibleFrame
+                let windowFrame = window.frame
+                let x = screenFrame.midX - windowFrame.width / 2
+                let y = screenFrame.minY + 80
+                window.setFrameOrigin(NSPoint(x: x, y: y))
+            }
+            window.orderFront(nil)
             return
         }
 
         let contentView = RecordingOverlayView(appState: AppState.shared)
-        hostingView = NSHostingView(rootView: contentView)
-        hostingView?.translatesAutoresizingMaskIntoConstraints = false
+        let hostingView = NSHostingView(rootView: contentView)
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 180, height: 60),
@@ -107,7 +111,5 @@ class RecordingOverlayWindowController {
     @MainActor
     func hide() {
         window?.orderOut(nil)
-        window = nil
-        hostingView = nil
     }
 }
