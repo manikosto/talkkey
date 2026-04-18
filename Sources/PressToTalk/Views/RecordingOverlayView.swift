@@ -112,7 +112,6 @@ class RecordingOverlayWindowController {
     func hide() {
         window?.orderOut(nil)
         window?.contentView = nil
-        window?.close()
         window = nil
     }
 }

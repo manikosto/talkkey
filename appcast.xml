@@ -8,6 +8,26 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.11</title>
+      <sparkle:version>2.11</sparkle:version>
+      <sparkle:shortVersionString>2.11</sparkle:shortVersionString>
+      <pubDate>Sat, 18 Apr 2026 13:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.11</h2>
+        <ul>
+          <li>Fixed a crash on shutdown of the recording overlay introduced in 2.10</li>
+          <li>Retains all CPU/memory improvements from 2.10</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.11/TalkKey.zip"
+          sparkle:edSignature="q6FwhFR850VwqY7GuSoeN9F3md57gdgZECvYnFUo1444JwlSOaM8ELp8RV2x17m1oDZ9VvzFA8CcAoTwv5TwDQ=="
+          length="3127574"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.10</title>
       <sparkle:version>2.10</sparkle:version>
       <sparkle:shortVersionString>2.10</sparkle:shortVersionString>
