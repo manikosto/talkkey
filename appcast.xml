@@ -8,6 +8,26 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.10</title>
+      <sparkle:version>2.10</sparkle:version>
+      <sparkle:shortVersionString>2.10</sparkle:shortVersionString>
+      <pubDate>Sat, 18 Apr 2026 12:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.10</h2>
+        <ul>
+          <li>Fixed high CPU and memory usage caused by the recording overlay running animations in the background</li>
+          <li>Overlay window is now fully released when not recording — no more slowdown after long uptime</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.10/TalkKey.zip"
+          sparkle:edSignature="G+XWXkc6zmgF2XLR9EkYW6AZXQmqHK7qalRoRG6Yrbwd/p9ARlCjmABikEXdECaB97E2Ev5g333vnCZ3EPPuBQ=="
+          length="3127467"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.9</title>
       <sparkle:version>2.9</sparkle:version>
       <sparkle:shortVersionString>2.9</sparkle:shortVersionString>
