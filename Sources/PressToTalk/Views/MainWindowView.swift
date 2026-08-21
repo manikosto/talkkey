@@ -8,48 +8,34 @@ struct MainWindowView: View {
     @Namespace private var tabIndicator
 
     var body: some View {
-        ZStack {
-            // Background gradient
-            LinearGradient(
-                colors: [
-                    Color(red: 0.08, green: 0.08, blue: 0.12),
-                    Color(red: 0.05, green: 0.05, blue: 0.08)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+        HStack(spacing: 0) {
+            SidebarView(selectedTab: $selectedTab, namespace: tabIndicator) { switchTab(to: $0) }
 
-            HStack(spacing: 0) {
-                sidebar
+            // Content: only the active tab exists, so hidden tabs never
+            // observe state or re-render (unlike TabView which keeps all alive)
+            ZStack {
+                Theme.contentBackground.ignoresSafeArea()
 
-                Rectangle()
-                    .fill(Color.white.opacity(0.06))
-                    .frame(width: 1)
-
-                // Content: only the active tab exists, so hidden tabs never
-                // observe state or re-render (unlike TabView which keeps all alive)
-                ZStack {
-                    switch selectedTab {
-                    case 0:
-                        HomeTab(appState: appState, settings: settings)
-                            .transition(tabTransition)
-                    case 1:
-                        HistoryTab(history: HistoryManager.shared)
-                            .transition(tabTransition)
-                    case 2:
-                        DictionaryTab()
-                            .transition(tabTransition)
-                    default:
-                        SettingsTab(appState: appState, settings: settings)
-                            .transition(tabTransition)
-                    }
+                switch selectedTab {
+                case 0:
+                    HomeTab(appState: appState, settings: settings)
+                        .transition(tabTransition)
+                case 1:
+                    HistoryTab(history: HistoryManager.shared)
+                        .transition(tabTransition)
+                case 2:
+                    DictionaryTab()
+                        .transition(tabTransition)
+                default:
+                    SettingsTab(appState: appState, settings: settings)
+                        .transition(tabTransition)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // System controls (pickers, fields, toggles) must render light here
+            .environment(\.colorScheme, .light)
         }
         .frame(minWidth: 880, minHeight: 600)
-        .preferredColorScheme(.dark)
         .onAppear {
             Task { await PermissionsManager.shared.checkAllPermissions() }
             settings.refreshMicrophones()
@@ -87,82 +73,6 @@ struct MainWindowView: View {
         }
     }
 
-    private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            // Logo — top padding clears the traffic lights in the
-            // full-size-content-view window
-            HStack(spacing: 10) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(
-                            LinearGradient(
-                                colors: [Color(red: 1.0, green: 0.42, blue: 0.3), Color(red: 0.9, green: 0.25, blue: 0.35)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 30, height: 30)
-                    Image(systemName: "mic.fill")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
-                }
-                Text("TalkKey")
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
-                if LicenseManager.shared.isPro {
-                    Text("PRO")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(.black)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.yellow)
-                        .cornerRadius(4)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 44)
-            .padding(.bottom, 24)
-
-            SidebarButton(title: "Home", icon: "house.fill", isSelected: selectedTab == 0, namespace: tabIndicator) {
-                switchTab(to: 0)
-            }
-            SidebarButton(title: "History", icon: "clock.fill", isSelected: selectedTab == 1, namespace: tabIndicator) {
-                switchTab(to: 1)
-            }
-            SidebarButton(title: "Dictionary", icon: "character.book.closed.fill", isSelected: selectedTab == 2, namespace: tabIndicator) {
-                switchTab(to: 2)
-            }
-            SidebarButton(title: "Settings", icon: "gearshape.fill", isSelected: selectedTab == 3, namespace: tabIndicator) {
-                switchTab(to: 3)
-            }
-
-            Spacer()
-
-            VStack(alignment: .leading, spacing: 10) {
-                Button(action: {
-                    NotificationCenter.default.post(name: .init("checkForUpdates"), object: nil)
-                }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.system(size: 11))
-                        Text("Check for Updates")
-                            .font(.system(size: 12))
-                    }
-                    .foregroundColor(.white.opacity(0.5))
-                }
-                .buttonStyle(.plain)
-
-                Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
-                    .font(.system(size: 11))
-                    .foregroundColor(.white.opacity(0.3))
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 20)
-        }
-        .frame(width: 216)
-        .background(Color.white.opacity(0.03))
-    }
-
     private var tabTransition: AnyTransition {
         .opacity.combined(with: .scale(scale: 0.98))
     }
@@ -172,48 +82,6 @@ struct MainWindowView: View {
         withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
             selectedTab = tab
         }
-    }
-}
-
-// MARK: - Sidebar Button
-
-struct SidebarButton: View {
-    let title: String
-    let icon: String
-    let isSelected: Bool
-    let namespace: Namespace.ID
-    let action: () -> Void
-    @State private var isHovering = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: icon)
-                    .font(.system(size: 14))
-                    .frame(width: 20)
-                Text(title)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
-                Spacer()
-            }
-            .foregroundColor(isSelected ? .white : .white.opacity(isHovering ? 0.75 : 0.5))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
-            .background {
-                if isSelected {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.white.opacity(0.1))
-                        .matchedGeometryEffect(id: "tab-pill", in: namespace)
-                } else if isHovering {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.white.opacity(0.04))
-                }
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 10)
-        .onHover { isHovering = $0 }
-        .animation(.easeOut(duration: 0.15), value: isHovering)
     }
 }
 
@@ -252,7 +120,7 @@ struct HomeTab: View {
                                 icon: "mic.fill",
                                 title: "Microphone",
                                 isGranted: appState.hasMicrophonePermission,
-                                color: .pink
+                                color: Theme.accentPink
                             ) {
                                 Task { await PermissionsManager.shared.requestMicrophone() }
                             }
@@ -261,7 +129,7 @@ struct HomeTab: View {
                                 icon: "hand.tap.fill",
                                 title: "Accessibility",
                                 isGranted: appState.hasAccessibilityPermission,
-                                color: .purple
+                                color: Theme.accentPurple
                             ) {
                                 PermissionsManager.shared.openAccessibilitySettings()
                             }
@@ -310,26 +178,26 @@ struct HistoryTab: View {
                 VStack(spacing: 16) {
                     Image(systemName: "clock.badge.questionmark")
                         .font(.system(size: 48))
-                        .foregroundColor(.white.opacity(0.2))
+                        .foregroundColor(Theme.textQuaternary)
                     Text("No transcriptions yet")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.white.opacity(0.4))
+                        .foregroundColor(Theme.textTertiary)
                     Text("Your transcriptions will appear here")
                         .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.3))
+                        .foregroundColor(Theme.textTertiary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 HStack {
                     Text("\(history.items.count) items")
                         .font(.system(size: 12))
-                        .foregroundColor(.white.opacity(0.4))
+                        .foregroundColor(Theme.textTertiary)
                     Spacer()
                     Button("Clear All") {
                         history.clear()
                     }
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.red.opacity(0.7))
+                    .foregroundColor(Theme.accentRed.opacity(0.7))
                     .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 32)
@@ -362,11 +230,11 @@ struct HistoryItemRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.text)
                     .font(.system(size: 13))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.textPrimary)
                     .lineLimit(3)
                 Text(item.formattedDate)
                     .font(.system(size: 11))
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(Theme.textTertiary)
             }
 
             Spacer()
@@ -375,7 +243,7 @@ struct HistoryItemRow: View {
                 Button(action: { copyToClipboard(item.text) }) {
                     Image(systemName: "doc.on.doc")
                         .font(.system(size: 12))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(Theme.textSecondary)
                 }
                 .buttonStyle(.plain)
             }
@@ -386,7 +254,7 @@ struct HistoryItemRow: View {
                 .fill(Color.white.opacity(isHovering ? 0.08 : 0.05))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        .stroke(Theme.cardBorder, lineWidth: 1)
                 )
         )
         .onHover { isHovering = $0 }
@@ -440,11 +308,11 @@ struct LicenseCard: View {
     private var licenseIcon: some View {
         ZStack {
             Circle()
-                .fill(license.isPro ? Color.yellow.opacity(0.2) : Color.gray.opacity(0.2))
+                .fill(license.isPro ? Theme.accentYellow.opacity(0.2) : Color.gray.opacity(0.2))
                 .frame(width: 36, height: 36)
             Image(systemName: license.isPro ? "crown.fill" : "person.fill")
                 .font(.system(size: 16))
-                .foregroundColor(license.isPro ? .yellow : .gray)
+                .foregroundColor(license.isPro ? Theme.accentYellow : .gray)
         }
     }
 
@@ -453,25 +321,25 @@ struct LicenseCard: View {
             HStack(spacing: 6) {
                 Text(license.isPro ? "Pro" : "Free")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.textPrimary)
                 if license.isPro {
                     Text("ACTIVE")
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(.black)
+                        .foregroundColor(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.yellow)
+                        .background(Theme.accentYellow)
                         .cornerRadius(4)
                 }
             }
             if license.isPro {
                 Text("All features unlocked")
                     .font(.system(size: 11))
-                    .foregroundColor(.green)
+                    .foregroundColor(Theme.accentGreen)
             } else {
                 Text("\(license.dailyTranscriptionsUsed)/\(LicenseManager.freeTranscriptionsPerDay) used today")
                     .font(.system(size: 11))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(Theme.textSecondary)
             }
         }
     }
@@ -482,14 +350,14 @@ struct LicenseCard: View {
             Button(action: { license.deactivateLicense() }) {
                 Text("Deactivate")
                     .font(.system(size: 12))
-                    .foregroundColor(.red.opacity(0.7))
+                    .foregroundColor(Theme.accentRed.opacity(0.7))
             }
             .buttonStyle(.plain)
         } else {
             Button(action: { showKeyInput.toggle() }) {
                 Text(showKeyInput ? "Cancel" : "Activate Pro")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.yellow)
+                    .foregroundColor(Theme.accentYellow)
             }
             .buttonStyle(.plain)
         }
@@ -498,7 +366,7 @@ struct LicenseCard: View {
     private var keyInputSection: some View {
         VStack(spacing: 0) {
             Divider()
-                .background(Color.white.opacity(0.08))
+                .background(Theme.cardBorder)
 
             VStack(spacing: 12) {
                 HStack(spacing: 10) {
@@ -509,7 +377,7 @@ struct LicenseCard: View {
                 if showError {
                     Text("Invalid license key")
                         .font(.system(size: 11))
-                        .foregroundColor(.red)
+                        .foregroundColor(Theme.accentRed)
                 }
             }
             .padding(14)
@@ -526,21 +394,21 @@ struct LicenseCard: View {
         LicenseKeyTextField(text: $licenseKey, onSubmit: activateKey)
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(Color.white.opacity(0.05))
+            .background(Theme.card)
             .cornerRadius(8)
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    .stroke(Theme.subtleFillStrong, lineWidth: 1)
             )
     }
 
     private var textFieldBorderColor: Color {
         if showError {
-            return Color.red.opacity(0.5)
+            return Theme.accentRed.opacity(0.5)
         } else if isKeyFieldFocused {
-            return Color.yellow.opacity(0.5)
+            return Theme.accentYellow.opacity(0.5)
         } else {
-            return Color.white.opacity(0.1)
+            return Theme.subtleFillStrong
         }
     }
 
@@ -548,10 +416,10 @@ struct LicenseCard: View {
         Button(action: activateKey) {
             Text("Activate")
                 .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.black)
+                .foregroundColor(.white)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-                .background(Color.yellow)
+                .background(Theme.accentYellow)
                 .cornerRadius(8)
         }
         .buttonStyle(.plain)
@@ -561,7 +429,7 @@ struct LicenseCard: View {
     private var limitsSection: some View {
         VStack(spacing: 0) {
             Divider()
-                .background(Color.white.opacity(0.08))
+                .background(Theme.cardBorder)
 
             VStack(spacing: 10) {
                 // Daily usage progress
@@ -569,17 +437,17 @@ struct LicenseCard: View {
                     HStack {
                         Text("Today's usage")
                             .font(.system(size: 11))
-                            .foregroundColor(.white.opacity(0.5))
+                            .foregroundColor(Theme.textSecondary)
                         Spacer()
                         Text("\(license.dailyTranscriptionsUsed)/\(LicenseManager.freeTranscriptionsPerDay)")
                             .font(.system(size: 11, weight: .medium, design: .monospaced))
-                            .foregroundColor(license.dailyTranscriptionsUsed >= LicenseManager.freeTranscriptionsPerDay ? .red : .white.opacity(0.7))
+                            .foregroundColor(license.dailyTranscriptionsUsed >= LicenseManager.freeTranscriptionsPerDay ? Theme.accentRed : Theme.textSecondary)
                     }
 
                     GeometryReader { geometry in
                         ZStack(alignment: .leading) {
                             RoundedRectangle(cornerRadius: 3)
-                                .fill(Color.white.opacity(0.1))
+                                .fill(Theme.subtleFillStrong)
                                 .frame(height: 6)
 
                             RoundedRectangle(cornerRadius: 3)
@@ -609,7 +477,7 @@ struct LicenseCard: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
-                        .background(Color.purple)
+                        .background(Theme.accentPurple)
                         .cornerRadius(6)
                     }
                     .buttonStyle(.plain)
@@ -625,19 +493,19 @@ struct LicenseCard: View {
 
     private var dailyUsageColor: Color {
         if dailyUsageProgress >= 1.0 {
-            return .red
+            return Theme.accentRed
         } else if dailyUsageProgress >= 0.8 {
-            return .orange
+            return Theme.accentOrange
         }
-        return .green
+        return Theme.accentGreen
     }
 
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: 14)
-            .fill(Color.white.opacity(0.05))
+            .fill(Theme.card)
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(license.isPro ? Color.yellow.opacity(0.3) : Color.white.opacity(0.08), lineWidth: 1)
+                    .stroke(license.isPro ? Theme.accentYellow.opacity(0.3) : Theme.cardBorder, lineWidth: 1)
             )
     }
 
@@ -717,7 +585,7 @@ struct LimitBadge: View {
             Text(text)
                 .font(.system(size: 11))
         }
-        .foregroundColor(.white.opacity(0.4))
+        .foregroundColor(Theme.textTertiary)
     }
 }
 
@@ -780,7 +648,7 @@ struct SettingsTab: View {
 
                     SettingsCard {
                         VStack(spacing: 0) {
-                            SettingRow(icon: "globe", title: "Language", color: .blue) {
+                            SettingRow(icon: "globe", title: "Language", color: Theme.accentBlue) {
                                 Picker("", selection: $settings.selectedLanguage) {
                                     ForEach(WhisperLanguage.allCases) { lang in
                                         Text(lang.displayName).tag(lang)
@@ -799,7 +667,7 @@ struct SettingsTab: View {
 
                     SettingsCard {
                         VStack(spacing: 0) {
-                            SettingRow(icon: "mic.fill", title: "Microphone", color: .pink) {
+                            SettingRow(icon: "mic.fill", title: "Microphone", color: Theme.accentPink) {
                                 Picker("", selection: $settings.selectedMicrophoneID) {
                                     ForEach(settings.availableMicrophones) { device in
                                         Text(device.name).tag(Optional(device.id))
@@ -810,7 +678,7 @@ struct SettingsTab: View {
                             }
 
                             Divider()
-                                .background(Color.white.opacity(0.08))
+                                .background(Theme.cardBorder)
                                 .padding(.leading, 58)
 
                             MicrophoneTestRow()
@@ -824,7 +692,7 @@ struct SettingsTab: View {
 
                     SettingsCard {
                         VStack(spacing: 0) {
-                            SettingRow(icon: "bolt.fill", title: "Direct Paste", color: .green) {
+                            SettingRow(icon: "bolt.fill", title: "Direct Paste", color: Theme.accentGreen) {
                                 Picker("", selection: $settings.selectedHotkey) {
                                     ForEach(HotkeyOption.allCases) { option in
                                         Text(option.displayName).tag(option)
@@ -835,31 +703,31 @@ struct SettingsTab: View {
                             }
 
                             Divider()
-                                .background(Color.white.opacity(0.08))
+                                .background(Theme.cardBorder)
                                 .padding(.leading, 58)
 
                             // Review Mode (Pro only)
                             HStack(spacing: 12) {
                                 ZStack {
                                     Circle()
-                                        .fill(Color.purple.opacity(0.2))
+                                        .fill(Theme.accentPurple.opacity(0.2))
                                         .frame(width: 32, height: 32)
                                     Image(systemName: "wand.and.stars")
                                         .font(.system(size: 14))
-                                        .foregroundColor(.purple)
+                                        .foregroundColor(Theme.accentPurple)
                                 }
 
                                 Text("Review Mode")
                                     .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(Theme.textPrimary)
 
                                 if !LicenseManager.shared.isPro {
                                     Text("PRO")
                                         .font(.system(size: 8, weight: .bold))
-                                        .foregroundColor(.black)
+                                        .foregroundColor(.white)
                                         .padding(.horizontal, 4)
                                         .padding(.vertical, 2)
-                                        .background(Color.yellow)
+                                        .background(Theme.accentYellow)
                                         .cornerRadius(3)
                                 }
 
@@ -878,39 +746,39 @@ struct SettingsTab: View {
                             .padding(14)
 
                             Divider()
-                                .background(Color.white.opacity(0.08))
+                                .background(Theme.cardBorder)
                                 .padding(.leading, 58)
 
                             // Translation row (Pro only)
                             HStack(spacing: 12) {
                                 ZStack {
                                     Circle()
-                                        .fill(Color.blue.opacity(0.2))
+                                        .fill(Theme.accentBlue.opacity(0.2))
                                         .frame(width: 32, height: 32)
                                     Image(systemName: "globe")
                                         .font(.system(size: 14))
-                                        .foregroundColor(.blue)
+                                        .foregroundColor(Theme.accentBlue)
                                 }
 
                                 Text("Translate")
                                     .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(Theme.textPrimary)
 
                                 Text("Fn")
                                     .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(Theme.accentBlue)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 4)
-                                    .background(Color.blue.opacity(0.2))
+                                    .background(Theme.accentBlue.opacity(0.2))
                                     .cornerRadius(4)
 
                                 if !LicenseManager.shared.isPro {
                                     Text("PRO")
                                         .font(.system(size: 8, weight: .bold))
-                                        .foregroundColor(.black)
+                                        .foregroundColor(.white)
                                         .padding(.horizontal, 4)
                                         .padding(.vertical, 2)
-                                        .background(Color.yellow)
+                                        .background(Theme.accentYellow)
                                         .cornerRadius(3)
                                 }
 
@@ -935,27 +803,27 @@ struct SettingsTab: View {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 6) {
                             Circle()
-                                .fill(Color.green)
+                                .fill(Theme.accentGreen)
                                 .frame(width: 6, height: 6)
                             Text("Direct Paste: Transcribes and pastes immediately")
                                 .font(.system(size: 11))
-                                .foregroundColor(.white.opacity(0.5))
+                                .foregroundColor(Theme.textSecondary)
                         }
                         HStack(spacing: 6) {
                             Circle()
-                                .fill(Color.purple)
+                                .fill(Theme.accentPurple)
                                 .frame(width: 6, height: 6)
                             Text("Review Mode: Opens window to edit and restyle text")
                                 .font(.system(size: 11))
-                                .foregroundColor(.white.opacity(0.5))
+                                .foregroundColor(Theme.textSecondary)
                         }
                         HStack(spacing: 6) {
                             Circle()
-                                .fill(Color.blue)
+                                .fill(Theme.accentBlue)
                                 .frame(width: 6, height: 6)
                             Text("Translate: Transcribes and translates to selected language")
                                 .font(.system(size: 11))
-                                .foregroundColor(.white.opacity(0.5))
+                                .foregroundColor(Theme.textSecondary)
                         }
                     }
                     .padding(.horizontal, 4)
@@ -971,20 +839,20 @@ struct SettingsTab: View {
                                 HStack(spacing: 12) {
                                     ZStack {
                                         Circle()
-                                            .fill(Color.yellow.opacity(0.2))
+                                            .fill(Theme.accentYellow.opacity(0.2))
                                             .frame(width: 36, height: 36)
                                         Image(systemName: "crown.fill")
                                             .font(.system(size: 16))
-                                            .foregroundColor(.yellow)
+                                            .foregroundColor(Theme.accentYellow)
                                     }
 
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("Unlock Pro Features")
                                             .font(.system(size: 14, weight: .semibold))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(Theme.textPrimary)
                                         Text("Cloud mode, translation, review & more")
                                             .font(.system(size: 11))
-                                            .foregroundColor(.white.opacity(0.5))
+                                            .foregroundColor(Theme.textSecondary)
                                     }
 
                                     Spacer()
@@ -1006,7 +874,7 @@ struct SettingsTab: View {
                                     .padding(.vertical, 12)
                                     .background(
                                         LinearGradient(
-                                            colors: [Color.purple, Color.purple.opacity(0.8)],
+                                            colors: [Theme.accentPurple, Theme.accentPurple.opacity(0.8)],
                                             startPoint: .leading,
                                             endPoint: .trailing
                                         )
@@ -1031,31 +899,31 @@ struct SettingsTab: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("TalkKey")
                                         .font(.system(size: 14, weight: .semibold))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(Theme.textPrimary)
                                     Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
                                         .font(.system(size: 12))
-                                        .foregroundColor(.white.opacity(0.5))
+                                        .foregroundColor(Theme.textSecondary)
                                 }
                                 Spacer()
                                 Link(destination: URL(string: "https://github.com/manikosto/talkkey")!) {
                                     Image(systemName: "arrow.up.right.square")
-                                        .foregroundColor(.white.opacity(0.4))
+                                        .foregroundColor(Theme.textTertiary)
                                 }
                             }
                             .padding(14)
 
                             Divider()
-                                .background(Color.white.opacity(0.1))
+                                .background(Theme.subtleFillStrong)
 
                             Button(action: {
                                 NotificationCenter.default.post(name: .init("checkForUpdates"), object: nil)
                             }) {
                                 HStack {
                                     Image(systemName: "arrow.triangle.2.circlepath")
-                                        .foregroundColor(.cyan)
+                                        .foregroundColor(Theme.accentCyan)
                                     Text("Check for Updates")
                                         .font(.system(size: 13))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(Theme.textPrimary)
                                     Spacer()
                                 }
                             }
@@ -1085,10 +953,10 @@ struct SettingsCard<Content: View>: View {
         content
             .background(
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(Color.white.opacity(0.05))
+                    .fill(Theme.card)
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                            .stroke(Theme.cardBorder, lineWidth: 1)
                     )
             )
     }
@@ -1120,7 +988,7 @@ struct SettingRow<Content: View>: View {
 
             Text(title)
                 .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.textPrimary)
 
             Spacer()
 
@@ -1184,10 +1052,10 @@ struct HeroSection: View {
             VStack(spacing: 6) {
                 Text(statusText)
                     .font(.system(size: 26, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.textPrimary)
                 Text(statusSubtext)
                     .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(Theme.textSecondary)
             }
             .animation(.easeInOut(duration: 0.25), value: statusText)
         }
@@ -1243,12 +1111,12 @@ struct HeroSection: View {
     }
 
     private var statusColor: Color {
-        if needsModel { return .orange }
-        if isModelLoading { return .cyan }
-        if appState.isRecording { return .red }
-        if appState.isTranscribing { return .blue }
-        if !appState.hasMicrophonePermission { return .orange }
-        return .green
+        if needsModel { return Theme.accentOrange }
+        if isModelLoading { return Theme.accentCyan }
+        if appState.isRecording { return Theme.accentRed }
+        if appState.isTranscribing { return Theme.accentBlue }
+        if !appState.hasMicrophonePermission { return Theme.accentOrange }
+        return Theme.accentGreen
     }
 }
 
@@ -1262,10 +1130,10 @@ struct SectionHeader: View {
         HStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.system(size: 13))
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(Theme.textSecondary)
             Text(title)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(Theme.textSecondary)
                 .textCase(.uppercase)
                 .tracking(1)
         }
@@ -1286,7 +1154,7 @@ struct WeeklyStatsCard: View {
 
             Divider()
                 .frame(height: 40)
-                .background(Color.white.opacity(0.1))
+                .background(Theme.subtleFillStrong)
 
             StatItem(
                 value: "\(tracker.weeklyWords)",
@@ -1296,7 +1164,7 @@ struct WeeklyStatsCard: View {
 
             Divider()
                 .frame(height: 40)
-                .background(Color.white.opacity(0.1))
+                .background(Theme.subtleFillStrong)
 
             StatItem(
                 value: "\(tracker.totalTranscriptions)",
@@ -1306,7 +1174,7 @@ struct WeeklyStatsCard: View {
 
             Divider()
                 .frame(height: 40)
-                .background(Color.white.opacity(0.1))
+                .background(Theme.subtleFillStrong)
 
             StatItem(
                 value: "\(tracker.weeklyMinutesSaved)",
@@ -1317,8 +1185,8 @@ struct WeeklyStatsCard: View {
         .padding(.vertical, 16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.05))
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                .fill(Theme.card)
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.cardBorder, lineWidth: 1))
         )
     }
 }
@@ -1333,14 +1201,14 @@ struct StatItem: View {
             HStack(spacing: 4) {
                 Text(value)
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.textPrimary)
                 Text(label)
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(Theme.textSecondary)
             }
             Text(sublabel)
                 .font(.system(size: 10))
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(Theme.textTertiary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -1359,16 +1227,16 @@ struct PermissionCard: View {
             HStack(spacing: 10) {
                 ZStack {
                     Circle()
-                        .fill(isGranted ? Color.green.opacity(0.2) : color.opacity(0.2))
+                        .fill(isGranted ? Theme.accentGreen.opacity(0.2) : color.opacity(0.2))
                         .frame(width: 32, height: 32)
                     Image(systemName: isGranted ? "checkmark" : icon)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(isGranted ? .green : color)
+                        .foregroundColor(isGranted ? Theme.accentGreen : color)
                 }
 
                 Text(title)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.textPrimary)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
 
@@ -1377,10 +1245,10 @@ struct PermissionCard: View {
                 if !isGranted {
                     Text("Grant")
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(Theme.textSecondary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color.white.opacity(0.1))
+                        .background(Theme.subtleFillStrong)
                         .cornerRadius(5)
                         .fixedSize()
                 }
@@ -1389,7 +1257,7 @@ struct PermissionCard: View {
             .background(
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color.white.opacity(isHovering && !isGranted ? 0.08 : 0.05))
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.cardBorder, lineWidth: 1))
             )
         }
         .buttonStyle(.plain)
@@ -1408,29 +1276,29 @@ struct HowToUseCard: View {
             HStack(spacing: 10) {
                 ZStack {
                     Circle()
-                        .fill(Color.green.opacity(0.2))
+                        .fill(Theme.accentGreen.opacity(0.2))
                         .frame(width: 32, height: 32)
                     Image(systemName: "bolt.fill")
                         .font(.system(size: 14))
-                        .foregroundColor(.green)
+                        .foregroundColor(Theme.accentGreen)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text("Direct Paste")
-                            .foregroundColor(.white)
+                            .foregroundColor(Theme.textPrimary)
                             .font(.system(size: 13, weight: .medium))
                         Text(primaryHotkey)
-                            .foregroundColor(.green)
+                            .foregroundColor(Theme.accentGreen)
                             .font(.system(size: 12, weight: .medium))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 2)
-                            .background(Color.green.opacity(0.2))
+                            .background(Theme.accentGreen.opacity(0.2))
                             .cornerRadius(4)
                     }
                     Text("Hold to record, release to paste text instantly")
                         .font(.system(size: 11))
-                        .foregroundColor(.white.opacity(0.4))
+                        .foregroundColor(Theme.textTertiary)
                 }
 
                 Spacer()
@@ -1438,36 +1306,36 @@ struct HowToUseCard: View {
             .padding(14)
 
             Divider()
-                .background(Color.white.opacity(0.06))
+                .background(Theme.cardBorder)
                 .padding(.leading, 56)
 
             // Review mode
             HStack(spacing: 10) {
                 ZStack {
                     Circle()
-                        .fill(Color.purple.opacity(0.2))
+                        .fill(Theme.accentPurple.opacity(0.2))
                         .frame(width: 32, height: 32)
                     Image(systemName: "wand.and.stars")
                         .font(.system(size: 14))
-                        .foregroundColor(.purple)
+                        .foregroundColor(Theme.accentPurple)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text("Review Mode")
-                            .foregroundColor(.white)
+                            .foregroundColor(Theme.textPrimary)
                             .font(.system(size: 13, weight: .medium))
                         Text(secondaryHotkey)
-                            .foregroundColor(.purple)
+                            .foregroundColor(Theme.accentPurple)
                             .font(.system(size: 12, weight: .medium))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 2)
-                            .background(Color.purple.opacity(0.2))
+                            .background(Theme.accentPurple.opacity(0.2))
                             .cornerRadius(4)
                     }
                     Text("Hold to record, release to edit and restyle text")
                         .font(.system(size: 11))
-                        .foregroundColor(.white.opacity(0.4))
+                        .foregroundColor(Theme.textTertiary)
                 }
 
                 Spacer()
@@ -1475,36 +1343,36 @@ struct HowToUseCard: View {
             .padding(14)
 
             Divider()
-                .background(Color.white.opacity(0.06))
+                .background(Theme.cardBorder)
                 .padding(.leading, 56)
 
             // Translation mode
             HStack(spacing: 10) {
                 ZStack {
                     Circle()
-                        .fill(Color.blue.opacity(0.2))
+                        .fill(Theme.accentBlue.opacity(0.2))
                         .frame(width: 32, height: 32)
                     Image(systemName: "globe")
                         .font(.system(size: 14))
-                        .foregroundColor(.blue)
+                        .foregroundColor(Theme.accentBlue)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text("Translate")
-                            .foregroundColor(.white)
+                            .foregroundColor(Theme.textPrimary)
                             .font(.system(size: 13, weight: .medium))
                         Text("Fn")
-                            .foregroundColor(.blue)
+                            .foregroundColor(Theme.accentBlue)
                             .font(.system(size: 12, weight: .medium))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 2)
-                            .background(Color.blue.opacity(0.2))
+                            .background(Theme.accentBlue.opacity(0.2))
                             .cornerRadius(4)
                     }
                     Text("Hold Fn to record and translate")
                         .font(.system(size: 11))
-                        .foregroundColor(.white.opacity(0.4))
+                        .foregroundColor(Theme.textTertiary)
                 }
 
                 Spacer()
@@ -1513,8 +1381,8 @@ struct HowToUseCard: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.05))
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                .fill(Theme.card)
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.cardBorder, lineWidth: 1))
         )
     }
 }
@@ -1568,19 +1436,19 @@ struct TranscriptionModeSelector: View {
                                     if mode == .cloud && !license.isPro {
                                         Text("PRO")
                                             .font(.system(size: 8, weight: .bold))
-                                            .foregroundColor(.black)
+                                            .foregroundColor(.white)
                                             .padding(.horizontal, 4)
                                             .padding(.vertical, 2)
-                                            .background(Color.yellow)
+                                            .background(Theme.accentYellow)
                                             .cornerRadius(3)
                                     }
                                 }
-                                .foregroundColor(transcriptionMode == mode ? .white : .white.opacity(0.5))
+                                .foregroundColor(transcriptionMode == mode ? .white : Theme.textSecondary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 10)
                                 .background(
                                     RoundedRectangle(cornerRadius: 8)
-                                        .fill(transcriptionMode == mode ? Color.white.opacity(0.15) : Color.clear)
+                                        .fill(transcriptionMode == mode ? Theme.subtleFillStrong : Color.clear)
                                 )
                                 .contentShape(Rectangle())
                             }
@@ -1590,21 +1458,21 @@ struct TranscriptionModeSelector: View {
                     .padding(6)
                     .background(
                         RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.white.opacity(0.05))
+                            .fill(Theme.card)
                     )
                     .padding(10)
 
                     Divider()
-                        .background(Color.white.opacity(0.08))
+                        .background(Theme.cardBorder)
 
                     // Mode description
                     HStack {
                         Image(systemName: transcriptionMode.icon)
                             .font(.system(size: 12))
-                            .foregroundColor(transcriptionMode == .offline ? .orange : .blue)
+                            .foregroundColor(transcriptionMode == .offline ? Theme.accentOrange : Theme.accentBlue)
                         Text(transcriptionMode.description)
                             .font(.system(size: 12))
-                            .foregroundColor(.white.opacity(0.5))
+                            .foregroundColor(Theme.textSecondary)
                         Spacer()
                     }
                     .padding(12)
@@ -1620,39 +1488,39 @@ struct TranscriptionModeSelector: View {
                             HStack(spacing: 12) {
                                 ZStack {
                                     Circle()
-                                        .fill(Color.orange.opacity(0.2))
+                                        .fill(Theme.accentOrange.opacity(0.2))
                                         .frame(width: 32, height: 32)
                                     if localTranscription.isModelLoading {
                                         ProgressView()
                                             .scaleEffect(0.7)
-                                            .progressViewStyle(CircularProgressViewStyle(tint: .orange))
+                                            .progressViewStyle(CircularProgressViewStyle(tint: Theme.accentOrange))
                                     } else {
                                         Image(systemName: localTranscription.isModelLoaded ? "checkmark" : (localTranscription.hasAnyModel ? "circle" : "arrow.down.circle"))
                                             .font(.system(size: 14))
-                                            .foregroundColor(localTranscription.isModelLoaded ? .green : .orange)
+                                            .foregroundColor(localTranscription.isModelLoaded ? Theme.accentGreen : Theme.accentOrange)
                                     }
                                 }
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Whisper Model")
                                         .font(.system(size: 13, weight: .medium))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(Theme.textPrimary)
                                     if localTranscription.isModelLoading || localTranscription.isDownloading {
                                         Text("Preparing model...")
                                             .font(.system(size: 11))
-                                            .foregroundColor(.orange)
+                                            .foregroundColor(Theme.accentOrange)
                                     } else if localTranscription.isModelLoaded {
                                         Text(localTranscription.modelDisplayName[localTranscription.selectedModel] ?? localTranscription.selectedModel)
                                             .font(.system(size: 11))
-                                            .foregroundColor(.green)
+                                            .foregroundColor(Theme.accentGreen)
                                     } else if localTranscription.hasAnyModel {
                                         Text("Not loaded — tap to activate")
                                             .font(.system(size: 11))
-                                            .foregroundColor(.orange)
+                                            .foregroundColor(Theme.accentOrange)
                                     } else {
                                         Text("No model — download below")
                                             .font(.system(size: 11))
-                                            .foregroundColor(.orange)
+                                            .foregroundColor(Theme.accentOrange)
                                     }
                                 }
                             }
@@ -1663,19 +1531,19 @@ struct TranscriptionModeSelector: View {
                                 HStack(spacing: 6) {
                                     ProgressView()
                                         .scaleEffect(0.6)
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .orange))
+                                        .progressViewStyle(CircularProgressViewStyle(tint: Theme.accentOrange))
                                     Text("Loading...")
                                         .font(.system(size: 12, weight: .medium))
-                                        .foregroundColor(.orange)
+                                        .foregroundColor(Theme.accentOrange)
                                 }
                             } else if localTranscription.isModelLoaded {
                                 HStack(spacing: 6) {
                                     Circle()
-                                        .fill(Color.green)
+                                        .fill(Theme.accentGreen)
                                         .frame(width: 8, height: 8)
                                     Text("Ready")
                                         .font(.system(size: 12, weight: .medium))
-                                        .foregroundColor(.green)
+                                        .foregroundColor(Theme.accentGreen)
                                 }
                             }
                         }
@@ -1693,25 +1561,25 @@ struct TranscriptionModeSelector: View {
                             HStack(spacing: 12) {
                                 ZStack {
                                     Circle()
-                                        .fill(Color.blue.opacity(0.2))
+                                        .fill(Theme.accentBlue.opacity(0.2))
                                         .frame(width: 32, height: 32)
                                     Image(systemName: appState.hasAPIKey ? "checkmark" : "key.fill")
                                         .font(.system(size: 14))
-                                        .foregroundColor(.blue)
+                                        .foregroundColor(Theme.accentBlue)
                                 }
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("OpenAI API Key")
                                         .font(.system(size: 13, weight: .medium))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(Theme.textPrimary)
                                     if appState.hasAPIKey {
                                         Text("Key saved securely")
                                             .font(.system(size: 11))
-                                            .foregroundColor(.green)
+                                            .foregroundColor(Theme.accentGreen)
                                     } else {
                                         Text("Required for cloud transcription")
                                             .font(.system(size: 11))
-                                            .foregroundColor(.white.opacity(0.5))
+                                            .foregroundColor(Theme.textSecondary)
                                     }
                                 }
                             }
@@ -1722,7 +1590,7 @@ struct TranscriptionModeSelector: View {
                                 Button(action: { showKeyField.toggle() }) {
                                     Text(showKeyField ? "Hide" : "Change")
                                         .font(.system(size: 12, weight: .medium))
-                                        .foregroundColor(.blue)
+                                        .foregroundColor(Theme.accentBlue)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -1731,19 +1599,19 @@ struct TranscriptionModeSelector: View {
 
                         if !appState.hasAPIKey || showKeyField {
                             Divider()
-                                .background(Color.white.opacity(0.08))
+                                .background(Theme.cardBorder)
 
                             VStack(spacing: 12) {
                                 SecureField("sk-...", text: $apiKey)
                                     .textFieldStyle(.plain)
                                     .font(.system(size: 13, design: .monospaced))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(Theme.textPrimary)
                                     .padding(10)
-                                    .background(Color.white.opacity(0.05))
+                                    .background(Theme.card)
                                     .cornerRadius(8)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 8)
-                                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                            .stroke(Theme.subtleFillStrong, lineWidth: 1)
                                     )
 
                                 HStack {
@@ -1753,7 +1621,7 @@ struct TranscriptionModeSelector: View {
                                             Text("Get API Key")
                                         }
                                         .font(.system(size: 11))
-                                        .foregroundColor(.blue.opacity(0.8))
+                                        .foregroundColor(Theme.accentBlue.opacity(0.8))
                                     }
 
                                     Spacer()
@@ -1772,7 +1640,7 @@ struct TranscriptionModeSelector: View {
                                         .foregroundColor(.white)
                                         .padding(.horizontal, 14)
                                         .padding(.vertical, 8)
-                                        .background(Color.blue)
+                                        .background(Theme.accentBlue)
                                         .cornerRadius(6)
                                     }
                                     .buttonStyle(.plain)
@@ -1790,10 +1658,10 @@ struct TranscriptionModeSelector: View {
                     HStack {
                         Image(systemName: "info.circle")
                             .font(.system(size: 11))
-                            .foregroundColor(.blue.opacity(0.6))
+                            .foregroundColor(Theme.accentBlue.opacity(0.6))
                         Text("Uses OpenAI Whisper API for transcription")
                             .font(.system(size: 11))
-                            .foregroundColor(.white.opacity(0.4))
+                            .foregroundColor(Theme.textTertiary)
                         Spacer()
                     }
                     .padding(.horizontal, 4)
@@ -1852,7 +1720,7 @@ struct ModelSelectionCard: View {
             HStack {
                 Text("AI Model")
                     .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(Theme.textSecondary)
 
                 Spacer()
 
@@ -1875,7 +1743,7 @@ struct ModelSelectionCard: View {
             .padding(.vertical, 10)
 
             Divider()
-                .background(Color.white.opacity(0.08))
+                .background(Theme.cardBorder)
 
             // Model info
             HStack(spacing: 8) {
@@ -1899,7 +1767,7 @@ struct ModelSelectionCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(localTranscription.modelDisplayName[selectedModel] ?? selectedModel)
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.textPrimary)
                     Text(statusText)
                         .font(.system(size: 11))
                         .foregroundColor(statusColor.opacity(0.8))
@@ -1916,10 +1784,10 @@ struct ModelSelectionCard: View {
                             Text(needsDownload ? "Download" : "Load")
                                 .font(.system(size: 12, weight: .medium))
                         }
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.textPrimary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(needsDownload ? Color.orange : Color.green)
+                        .background(needsDownload ? Theme.accentOrange : Theme.accentGreen)
                         .cornerRadius(6)
                     }
                     .buttonStyle(.plain)
@@ -1929,16 +1797,16 @@ struct ModelSelectionCard: View {
 
             if let error = loadError {
                 Divider()
-                    .background(Color.white.opacity(0.08))
+                    .background(Theme.cardBorder)
                 Text(error)
                     .font(.system(size: 11))
-                    .foregroundColor(.red)
+                    .foregroundColor(Theme.accentRed)
                     .padding(10)
             }
         }
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color.white.opacity(0.05))
+                .fill(Theme.card)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
                         .stroke(statusColor.opacity(0.2), lineWidth: 1)
@@ -1958,11 +1826,11 @@ struct ModelSelectionCard: View {
 
     private var statusColor: Color {
         if isCurrentModelLoaded {
-            return .green
+            return Theme.accentGreen
         } else if localTranscription.isModelDownloaded(selectedModel) {
-            return .blue
+            return Theme.accentBlue
         } else {
-            return .orange
+            return Theme.accentOrange
         }
     }
 
@@ -2005,20 +1873,20 @@ struct ModelSetupBanner: View {
             HStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .fill(Color.orange.opacity(0.2))
+                        .fill(Theme.accentOrange.opacity(0.2))
                         .frame(width: 40, height: 40)
                     Image(systemName: "arrow.down.circle.fill")
                         .font(.system(size: 20))
-                        .foregroundColor(.orange)
+                        .foregroundColor(Theme.accentOrange)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Speech Model Required")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.textPrimary)
                     Text("Choose and download a model to start transcribing")
                         .font(.system(size: 12))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(Theme.textSecondary)
                 }
                 Spacer()
             }
@@ -2029,11 +1897,11 @@ struct ModelSetupBanner: View {
                     Button(action: { selectedModel = model }) {
                         HStack(spacing: 12) {
                             Circle()
-                                .fill(selectedModel == model ? Color.orange : Color.white.opacity(0.1))
+                                .fill(selectedModel == model ? Theme.accentOrange : Theme.subtleFillStrong)
                                 .frame(width: 18, height: 18)
                                 .overlay(
                                     Circle()
-                                        .fill(Color.white)
+                                        .fill(Theme.card)
                                         .frame(width: 8, height: 8)
                                         .opacity(selectedModel == model ? 1 : 0)
                                 )
@@ -2041,23 +1909,23 @@ struct ModelSetupBanner: View {
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(localService.modelDisplayName[model] ?? model)
                                     .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(Theme.textPrimary)
                                 Text(localService.modelQualityDescription[model] ?? "")
                                     .font(.system(size: 11))
-                                    .foregroundColor(.white.opacity(0.4))
+                                    .foregroundColor(Theme.textTertiary)
                             }
 
                             Spacer()
 
                             Text(localService.modelSizeDescription[model] ?? "")
                                 .font(.system(size: 11, design: .monospaced))
-                                .foregroundColor(.white.opacity(0.4))
+                                .foregroundColor(Theme.textTertiary)
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
                         .background(
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(selectedModel == model ? Color.orange.opacity(0.1) : Color.clear)
+                                .fill(selectedModel == model ? Theme.accentOrange.opacity(0.1) : Color.clear)
                         )
                         .contentShape(Rectangle())
                     }
@@ -2068,7 +1936,7 @@ struct ModelSetupBanner: View {
             if let error = error {
                 Text(error)
                     .font(.system(size: 11))
-                    .foregroundColor(.red)
+                    .foregroundColor(Theme.accentRed)
             }
 
             Button(action: downloadModel) {
@@ -2084,10 +1952,10 @@ struct ModelSetupBanner: View {
                     Text(isDownloading ? "Downloading..." : "Download \(localService.modelDisplayName[selectedModel] ?? selectedModel)")
                         .font(.system(size: 14, weight: .semibold))
                 }
-                .foregroundColor(.white)
+                .foregroundColor(Theme.textPrimary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
-                .background(isDownloading ? Color.gray : Color.orange)
+                .background(isDownloading ? Color.gray : Theme.accentOrange)
                 .cornerRadius(10)
             }
             .buttonStyle(.plain)
@@ -2096,10 +1964,10 @@ struct ModelSetupBanner: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.orange.opacity(0.05))
+                .fill(Theme.accentOrange.opacity(0.05))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                        .stroke(Theme.accentOrange.opacity(0.3), lineWidth: 1)
                 )
         )
     }
@@ -2130,33 +1998,33 @@ struct TestInputCard: View {
             HStack(spacing: 10) {
                 TextEditor(text: $testText)
                     .font(.system(size: 13))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.textPrimary)
                     .scrollContentBackground(.hidden)
                     .focused($isFocused)
                     .frame(height: 80)
                     .padding(10)
-                    .background(Color.white.opacity(0.05))
+                    .background(Theme.card)
                     .cornerRadius(10)
                     .overlay(
                         RoundedRectangle(cornerRadius: 10)
-                            .stroke(isFocused ? Color.purple.opacity(0.5) : Color.white.opacity(0.1), lineWidth: 1)
+                            .stroke(isFocused ? Theme.accentPurple.opacity(0.5) : Theme.subtleFillStrong, lineWidth: 1)
                     )
             }
 
             HStack(spacing: 10) {
                 Text("Click here, then hold the hotkey to transcribe")
                     .font(.system(size: 11))
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(Theme.textTertiary)
 
                 Spacer()
 
                 Button(action: { testText = "" }) {
                     Text("Clear")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(Theme.textSecondary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(Color.white.opacity(0.1))
+                        .background(Theme.subtleFillStrong)
                         .cornerRadius(6)
                 }
                 .buttonStyle(.plain)
@@ -2167,8 +2035,8 @@ struct TestInputCard: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.05))
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                .fill(Theme.card)
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.cardBorder, lineWidth: 1))
         )
     }
 }
@@ -2182,21 +2050,21 @@ struct MicrophoneTestRow: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(testService.isTesting ? Color.green.opacity(0.2) : Color.cyan.opacity(0.2))
+                    .fill(testService.isTesting ? Theme.accentGreen.opacity(0.2) : Theme.accentCyan.opacity(0.2))
                     .frame(width: 32, height: 32)
                 Image(systemName: testService.isTesting ? "waveform" : "mic.badge.plus")
                     .font(.system(size: 14))
-                    .foregroundColor(testService.isTesting ? .green : .cyan)
+                    .foregroundColor(testService.isTesting ? Theme.accentGreen : Theme.accentCyan)
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Test Microphone")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.textPrimary)
 
                 Text(testService.isTesting ? "Listening... Speak to see levels" : "Check if microphone is working")
                     .font(.system(size: 11))
-                    .foregroundColor(testService.isTesting ? .green : .white.opacity(0.5))
+                    .foregroundColor(testService.isTesting ? Theme.accentGreen : Theme.textSecondary)
             }
 
             Spacer()
@@ -2206,7 +2074,7 @@ struct MicrophoneTestRow: View {
                 HStack(spacing: 2) {
                     ForEach(0..<10, id: \.self) { i in
                         RoundedRectangle(cornerRadius: 1)
-                            .fill(CGFloat(i) / 10.0 < testService.audioLevel ? (i < 7 ? Color.green : Color.orange) : Color.white.opacity(0.15))
+                            .fill(CGFloat(i) / 10.0 < testService.audioLevel ? (i < 7 ? Theme.accentGreen : Theme.accentOrange) : Theme.subtleFillStrong)
                             .frame(width: 4, height: 18)
                     }
                 }
@@ -2216,10 +2084,10 @@ struct MicrophoneTestRow: View {
             Button(action: { testService.toggleTest() }) {
                 Text(testService.isTesting ? "Stop" : "Test")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(testService.isTesting ? .red : .white)
+                    .foregroundColor(testService.isTesting ? Theme.accentRed : .white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .background(testService.isTesting ? Color.red.opacity(0.2) : Color.cyan)
+                    .background(testService.isTesting ? Theme.accentRed.opacity(0.2) : Theme.accentCyan)
                     .cornerRadius(6)
             }
             .buttonStyle(.plain)

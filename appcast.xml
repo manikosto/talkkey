@@ -8,6 +8,26 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.21</title>
+      <sparkle:version>2.21</sparkle:version>
+      <sparkle:shortVersionString>2.21</sparkle:shortVersionString>
+      <pubDate>Sat, 22 Aug 2026 09:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.21</h2>
+        <ul>
+          <li>Refreshed interface: a dark sidebar against a light, airy content area</li>
+          <li>The control bar can no longer drift off screen when you open the quick settings — it is pinned to one spot and can't be moved by accident</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.21/TalkKey.zip"
+          sparkle:edSignature="IHVJSpDnrX+hf7l0//BmuEsdVuvCzioQKvrZlYq7ujt5vanWSY+rVBuhdTm3S8UsNMXhCAWUKUoJbFsIY/OTAw=="
+          length="4407644"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.20</title>
       <sparkle:version>2.20</sparkle:version>
       <sparkle:shortVersionString>2.20</sparkle:shortVersionString>

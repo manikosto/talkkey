@@ -56,20 +56,20 @@ struct DictionaryTab: View {
                     HStack(spacing: 12) {
                         ZStack {
                             Circle()
-                                .fill(Color.purple.opacity(0.2))
+                                .fill(Theme.accentPurple.opacity(0.2))
                                 .frame(width: 32, height: 32)
                             Image(systemName: "wand.and.sparkles")
                                 .font(.system(size: 14))
-                                .foregroundColor(.purple)
+                                .foregroundColor(Theme.accentPurple)
                         }
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Custom vocabulary")
                                 .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.white)
+                                .foregroundColor(Theme.textPrimary)
                             Text("Names, brands and jargon TalkKey should always spell correctly")
                                 .font(.system(size: 11))
-                                .foregroundColor(.white.opacity(0.5))
+                                .foregroundColor(Theme.textSecondary)
                         }
 
                         Spacer()
@@ -81,26 +81,26 @@ struct DictionaryTab: View {
                     .padding(14)
 
                     Divider()
-                        .background(Color.white.opacity(0.08))
+                        .background(Theme.cardBorder)
                         .padding(.leading, 58)
 
                     HStack(spacing: 12) {
                         ZStack {
                             Circle()
-                                .fill(Color.cyan.opacity(0.2))
+                                .fill(Theme.accentCyan.opacity(0.2))
                                 .frame(width: 32, height: 32)
                             Image(systemName: "text.magnifyingglass")
                                 .font(.system(size: 14))
-                                .foregroundColor(.cyan)
+                                .foregroundColor(Theme.accentCyan)
                         }
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Fix near-misses")
                                 .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.white)
+                                .foregroundColor(Theme.textPrimary)
                             Text("Also repair words that came out almost right")
                                 .font(.system(size: 11))
-                                .foregroundColor(.white.opacity(0.5))
+                                .foregroundColor(Theme.textSecondary)
                         }
 
                         Spacer()
@@ -135,10 +135,10 @@ struct DictionaryTab: View {
                                 Text("Add")
                                     .font(.system(size: 13, weight: .medium))
                             }
-                            .foregroundColor(.white)
+                            .foregroundColor(Theme.textPrimary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 9)
-                            .background(newTerm.isEmpty ? Color.white.opacity(0.1) : Color.purple)
+                            .background(newTerm.isEmpty ? Theme.subtleFillStrong : Theme.accentPurple)
                             .cornerRadius(8)
                         }
                         .buttonStyle(.plain)
@@ -155,7 +155,7 @@ struct DictionaryTab: View {
                             .font(.system(size: 11))
                         Spacer()
                     }
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(Theme.textTertiary)
                 }
                 .padding(14)
             }
@@ -166,14 +166,14 @@ struct DictionaryTab: View {
         TextField(placeholder, text: text)
             .textFieldStyle(.plain)
             .font(.system(size: 13))
-            .foregroundColor(.white)
+            .foregroundColor(Theme.textPrimary)
             .padding(.horizontal, 10)
             .padding(.vertical, 9)
-            .background(Color.white.opacity(0.05))
+            .background(Theme.subtleFill)
             .cornerRadius(8)
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    .stroke(Theme.cardBorder, lineWidth: 1)
             )
     }
 
@@ -181,14 +181,14 @@ struct DictionaryTab: View {
         VStack(spacing: 12) {
             Image(systemName: "character.book.closed")
                 .font(.system(size: 40))
-                .foregroundColor(.white.opacity(0.18))
+                .foregroundColor(Theme.subtleFillStrong)
             Text("No terms yet")
                 .font(.system(size: 15, weight: .medium))
-                .foregroundColor(.white.opacity(0.45))
+                .foregroundColor(Theme.textTertiary)
             Text("Add the words TalkKey keeps getting wrong — product names,\npeople, technical terms.")
                 .font(.system(size: 12))
                 .multilineTextAlignment(.center)
-                .foregroundColor(.white.opacity(0.3))
+                .foregroundColor(Theme.textTertiary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
@@ -222,14 +222,14 @@ private struct DictionaryRow: View {
             }) {
                 Image(systemName: entry.isEnabled ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 15))
-                    .foregroundColor(entry.isEnabled ? .green : .white.opacity(0.25))
+                    .foregroundColor(entry.isEnabled ? Theme.accentGreen : Theme.textQuaternary)
             }
             .buttonStyle(.plain)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(entry.term)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(entry.isEnabled ? .white : .white.opacity(0.4))
+                    .foregroundColor(entry.isEnabled ? .white : Theme.textTertiary)
 
                 if !entry.variants.isEmpty {
                     HStack(spacing: 5) {
@@ -239,7 +239,7 @@ private struct DictionaryRow: View {
                             .font(.system(size: 11))
                             .lineLimit(1)
                     }
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(Theme.textTertiary)
                 }
             }
 
@@ -249,14 +249,14 @@ private struct DictionaryRow: View {
                 Button(action: onEdit) {
                     Image(systemName: "pencil")
                         .font(.system(size: 12))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(Theme.textSecondary)
                 }
                 .buttonStyle(.plain)
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
                         .font(.system(size: 12))
-                        .foregroundColor(.red.opacity(0.6))
+                        .foregroundColor(Theme.accentRed.opacity(0.6))
                 }
                 .buttonStyle(.plain)
             }
@@ -268,7 +268,7 @@ private struct DictionaryRow: View {
                 .fill(Color.white.opacity(isHovering ? 0.08 : 0.05))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        .stroke(Theme.cardBorder, lineWidth: 1)
                 )
         )
         .onHover { isHovering = $0 }
@@ -288,31 +288,31 @@ private struct DictionaryEditSheet: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Edit term")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.textPrimary)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Term")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(Theme.textSecondary)
                 TextField("", text: $entry.term)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.textPrimary)
                     .padding(9)
-                    .background(Color.white.opacity(0.06))
+                    .background(Theme.cardBorder)
                     .cornerRadius(8)
             }
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Misheard as (comma separated)")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(Theme.textSecondary)
                 TextField("", text: $variantsText)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.textPrimary)
                     .padding(9)
-                    .background(Color.white.opacity(0.06))
+                    .background(Theme.cardBorder)
                     .cornerRadius(8)
             }
 
@@ -320,7 +320,7 @@ private struct DictionaryEditSheet: View {
                 Spacer()
                 Button("Cancel", action: onCancel)
                     .buttonStyle(.plain)
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(Theme.textSecondary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
 
@@ -334,7 +334,7 @@ private struct DictionaryEditSheet: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 18)
                         .padding(.vertical, 8)
-                        .background(Color.purple)
+                        .background(Theme.accentPurple)
                         .cornerRadius(8)
                 }
                 .buttonStyle(.plain)
@@ -342,7 +342,7 @@ private struct DictionaryEditSheet: View {
         }
         .padding(24)
         .frame(width: 420)
-        .background(Color(red: 0.08, green: 0.08, blue: 0.12))
+        .background(Theme.contentBackground)
         .onAppear { variantsText = entry.variantsText }
     }
 }

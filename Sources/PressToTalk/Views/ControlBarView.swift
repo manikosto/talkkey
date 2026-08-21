@@ -376,6 +376,11 @@ final class ControlBarController {
     /// True when the bar was summoned only to indicate recording and should
     /// disappear again afterwards.
     private var shownForRecordingOnly = false
+    /// Re-entrancy guard: setFrame triggers a layout pass that reports a size
+    /// and calls back into resize.
+    private var isApplyingFrame = false
+    /// Screen the bar is pinned to, chosen when it is shown.
+    private var anchorScreen: NSScreen?
 
 
     var isVisible: Bool { panel != nil }
@@ -424,7 +429,13 @@ final class ControlBarController {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false
         panel.becomesKeyOnlyIfNeeded = true
-        panel.isMovableByWindowBackground = true
+        // Fixed in place by design — the bar is a status indicator, and a
+        // stray drag while reaching for the record button used to leave it
+        // somewhere unexpected.
+        panel.isMovableByWindowBackground = false
+        panel.isMovable = false
+
+        anchorScreen = activeScreen()
 
         let hostingView = ControlBarHostingView(rootView: ControlBarView(appState: AppState.shared))
         hostingView.onSizeChange = { [weak panel] size in
@@ -452,6 +463,7 @@ final class ControlBarController {
 
     private func dismiss() {
         guard let panel = panel else { return }
+        anchorScreen = nil
         self.panel = nil
 
         NSAnimationContext.runAnimationGroup({ ctx in
@@ -482,20 +494,30 @@ final class ControlBarController {
 
     // MARK: - Geometry
 
-    /// Grows and shrinks around a fixed bottom-centre anchor, so opening the
-    /// quick settings does not shove the pill sideways.
+    /// Re-anchors the window to the screen on every size change.
+    ///
+    /// The position is deliberately derived from the screen, never from the
+    /// window's current frame: `setFrame` triggers another layout pass, which
+    /// reports a size and calls back in here, and computing "centre" from a
+    /// frame that is mid-update made the window walk sideways a little on
+    /// each pass until it left the screen entirely.
     private func resize(_ panel: NSPanel, to size: CGSize) {
         let current = panel.frame
         guard abs(current.width - size.width) > 0.5 || abs(current.height - size.height) > 0.5 else { return }
+        guard !isApplyingFrame else { return }
 
-        let frame = NSRect(
-            x: current.midX - size.width / 2,
-            y: current.minY,
-            width: size.width,
-            height: size.height
-        )
+        isApplyingFrame = true
+        panel.setFrame(NSRect(origin: anchoredOrigin(for: size), size: size), display: true, animate: false)
+        isApplyingFrame = false
+    }
 
-        panel.setFrame(frame, display: true, animate: false)
+    /// Bottom-centre of the anchor screen, just above the Dock. The window
+    /// carries the glow margin below the pill, and grows upward as the quick
+    /// settings open, so the pill itself never moves.
+    private func anchoredOrigin(for size: CGSize) -> NSPoint {
+        guard let screen = anchorScreen ?? activeScreen() else { return .zero }
+        let visible = screen.visibleFrame
+        return NSPoint(x: visible.midX - size.width / 2, y: visible.minY)
     }
 
     /// Always horizontally centred, sitting just above the Dock.
@@ -506,15 +528,7 @@ final class ControlBarController {
     /// "centred" the moment the content grows, which is how the bar used to
     /// drift off to one side. Dragging still works within a session.
     private func positionAtDefault(_ panel: NSPanel) {
-        guard let screen = activeScreen() else { return }
-        let visible = screen.visibleFrame
-
-        // visibleFrame already excludes the Dock, and the window carries the
-        // glow margin below the pill.
-        panel.setFrameOrigin(NSPoint(
-            x: visible.midX - panel.frame.width / 2,
-            y: visible.minY
-        ))
+        panel.setFrameOrigin(anchoredOrigin(for: panel.frame.size))
     }
 
     /// The display the user is actually working on — the one under the mouse.
