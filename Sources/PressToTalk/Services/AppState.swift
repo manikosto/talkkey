@@ -31,6 +31,7 @@ class AppState: ObservableObject {
     @Published var isRecording = false
     @Published var isTranscribing = false
     @Published var currentRecordingMode: CurrentRecordingMode = .directPaste
+    @Published var recordingStartedAt: Date?
     @Published var needsModelSetup = false
 
     // Permissions

@@ -8,6 +8,30 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.18</title>
+      <sparkle:version>2.18</sparkle:version>
+      <sparkle:shortVersionString>2.18</sparkle:shortVersionString>
+      <pubDate>Sat, 22 Aug 2026 01:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.18</h2>
+        <ul>
+          <li>One floating pill instead of two — the control bar is now the recording indicator, so the separate overlay is gone</li>
+          <li>Compact by default and centred at the bottom of the screen, no longer stuck in the far corner</li>
+          <li>It glows in the colour of the active mode while recording — red for paste, blue for translate, purple for review</li>
+          <li>Expands smoothly into waveform and timer when recording, then shrinks back</li>
+          <li>Denser, finer waveform</li>
+          <li>Fixed the bar remembering a wrong position and reappearing in the bottom-left corner on every launch</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.18/TalkKey.zip"
+          sparkle:edSignature="VXnsM1JRAWGXg8skk30NZtp7DaviWUMZYxcmEeSB7Q1rt5AVlLozi8Z0kiRXVEmpwRz42EB1tkfZYXn4QMFcCA=="
+          length="4394738"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.17</title>
       <sparkle:version>2.17</sparkle:version>
       <sparkle:shortVersionString>2.17</sparkle:shortVersionString>

@@ -11,7 +11,9 @@ final class AudioLevelStore: @unchecked Sendable {
     static let shared = AudioLevelStore()
 
     /// Number of history samples kept (== bars drawn by the waveform).
-    static let capacity = 28
+    /// Denser than the visible bar spacing needs, which is what gives the
+    /// waveform its fine-grained look rather than a row of chunky blocks.
+    static let capacity = 42
 
     /// Target interval between pushes; the renderer uses this to interpolate
     /// a continuous scroll between discrete samples.

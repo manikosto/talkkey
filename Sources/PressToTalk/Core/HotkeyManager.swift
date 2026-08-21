@@ -239,8 +239,9 @@ class HotkeyManager {
                     AppState.shared.currentRecordingMode = .translation
                 }
 
+                AppState.shared.recordingStartedAt = Date()
                 AppState.shared.isRecording = true
-                RecordingOverlayWindowController.shared.show()
+                ControlBarController.shared.beginRecordingPresentation()
             } catch {
                 print("Recording error: \(error)")
                 showNotification(title: "Recording Error", body: error.localizedDescription)
@@ -259,7 +260,7 @@ class HotkeyManager {
             let hasSufficientAudio = audioRecorder.hasSufficientAudio
 
             AppState.shared.isRecording = false
-            RecordingOverlayWindowController.shared.hide()
+            AppState.shared.recordingStartedAt = nil
 
             // Track usage time
             UsageTracker.shared.stopRecording()
@@ -334,6 +335,8 @@ class HotkeyManager {
             }
 
             AppState.shared.isTranscribing = false
+            // Kept visible through transcription so the user sees it finish.
+            ControlBarController.shared.endRecordingPresentation()
         }
     }
 
@@ -347,7 +350,8 @@ class HotkeyManager {
             isSecondaryHotkeyPressed = false
             UsageTracker.shared.cancelRecording()
             audioRecorder.cancelRecording()
-            RecordingOverlayWindowController.shared.hide()
+            AppState.shared.recordingStartedAt = nil
+            ControlBarController.shared.endRecordingPresentation()
         }
     }
 
