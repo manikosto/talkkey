@@ -163,23 +163,18 @@ class LocalTranscriptionService: ObservableObject {
     private func transcribeWith(_ whisperKit: WhisperKit, audioURL: URL, translateToEnglish: Bool = false) async throws -> TranscribeResult {
         let settings = SettingsManager.shared
 
-        let task: DecodingTask = translateToEnglish ? .translate : .transcribe
-
-        let languageCode: String?
-        if translateToEnglish {
-            languageCode = nil
-        } else {
-            let language = settings.selectedLanguage
-            languageCode = language == .auto ? nil : language.rawValue
+        if !translateToEnglish && settings.selectedLanguage == .auto {
+            return try await transcribeAutoDetect(whisperKit, audioURL: audioURL)
         }
 
-        // language == nil → run WhisperKit's language-detection pass; without
-        // detectLanguage: true a nil language silently falls back to English.
+        let task: DecodingTask = translateToEnglish ? .translate : .transcribe
+        let languageCode: String? = translateToEnglish ? nil : settings.selectedLanguage.rawValue
+
         let options = DecodingOptions(
             task: task,
             language: languageCode,
             usePrefillPrompt: true,
-            detectLanguage: languageCode == nil
+            detectLanguage: false
         )
 
         let results = try await whisperKit.transcribe(audioPath: audioURL.path, decodeOptions: options)
@@ -192,6 +187,69 @@ class LocalTranscriptionService: ObservableObject {
             text: result.text.trimmingCharacters(in: .whitespacesAndNewlines),
             detectedLanguage: result.language
         )
+    }
+
+    /// Auto-detect with disambiguation.
+    ///
+    /// Whisper has a nasty failure mode: when the detected language token is
+    /// wrong (e.g. accented English detected as Russian), `.transcribe` silently
+    /// *translates* the speech into the detected language instead of writing
+    /// down what was said. So when detection is not confident, we decode with
+    /// both top candidates and keep the output the model itself was more sure
+    /// about (higher average token log-probability).
+    private func transcribeAutoDetect(_ whisperKit: WhisperKit, audioURL: URL) async throws -> TranscribeResult {
+        let supported = Set(WhisperLanguage.allCases.map(\.rawValue)).subtracting(["auto"])
+        let detection = try await whisperKit.detectLanguage(audioPath: audioURL.path)
+
+        // Rank candidates within the languages the app actually offers —
+        // this alone removes most of the long-tail misdetections.
+        let ranked = detection.langProbs
+            .filter { supported.contains($0.key) }
+            .sorted { $0.value > $1.value }
+
+        let best = ranked.first?.key ?? detection.language
+        let bestProb = ranked.first?.value ?? 0
+        let runnerUp = ranked.dropFirst().first
+
+        let bestResult = try await decode(whisperKit, audioURL: audioURL, language: best)
+
+        if let runnerUp, bestProb < 0.8, runnerUp.value > 0.1 {
+            let altResult = try await decode(whisperKit, audioURL: audioURL, language: runnerUp.key)
+            if decodeConfidence(altResult) > decodeConfidence(bestResult) {
+                return TranscribeResult(
+                    text: altResult.text.trimmingCharacters(in: .whitespacesAndNewlines),
+                    detectedLanguage: runnerUp.key
+                )
+            }
+        }
+
+        return TranscribeResult(
+            text: bestResult.text.trimmingCharacters(in: .whitespacesAndNewlines),
+            detectedLanguage: best
+        )
+    }
+
+    private func decode(_ whisperKit: WhisperKit, audioURL: URL, language: String) async throws -> TranscriptionResult {
+        let options = DecodingOptions(
+            task: .transcribe,
+            language: language,
+            usePrefillPrompt: true,
+            detectLanguage: false
+        )
+        let results = try await whisperKit.transcribe(audioPath: audioURL.path, decodeOptions: options)
+        guard let result = results.first else {
+            throw LocalTranscriptionError.transcriptionFailed("No results returned")
+        }
+        return result
+    }
+
+    private func decodeConfidence(_ result: TranscriptionResult) -> Float {
+        let segments = result.segments
+        guard !segments.isEmpty,
+              !result.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return -.greatestFiniteMagnitude
+        }
+        return segments.map(\.avgLogprob).reduce(0, +) / Float(segments.count)
     }
 
     func transcribePartial(audioSamples: [Float]) async throws -> String {

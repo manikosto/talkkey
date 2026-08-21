@@ -20,21 +20,12 @@ struct MainWindowView: View {
             )
             .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                // Tab bar
-                HStack(spacing: 0) {
-                    TabButton(title: "Home", icon: "house.fill", isSelected: selectedTab == 0, namespace: tabIndicator) {
-                        switchTab(to: 0)
-                    }
-                    TabButton(title: "History", icon: "clock.fill", isSelected: selectedTab == 1, namespace: tabIndicator) {
-                        switchTab(to: 1)
-                    }
-                    TabButton(title: "Settings", icon: "gearshape.fill", isSelected: selectedTab == 2, namespace: tabIndicator) {
-                        switchTab(to: 2)
-                    }
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 16)
+            HStack(spacing: 0) {
+                sidebar
+
+                Rectangle()
+                    .fill(Color.white.opacity(0.06))
+                    .frame(width: 1)
 
                 // Content: only the active tab exists, so hidden tabs never
                 // observe state or re-render (unlike TabView which keeps all alive)
@@ -54,7 +45,7 @@ struct MainWindowView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .frame(minWidth: 520, minHeight: 640)
+        .frame(minWidth: 880, minHeight: 600)
         .preferredColorScheme(.dark)
         .onAppear {
             Task { await PermissionsManager.shared.checkAllPermissions() }
@@ -87,6 +78,79 @@ struct MainWindowView: View {
         }
     }
 
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            // Logo — top padding clears the traffic lights in the
+            // full-size-content-view window
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(red: 1.0, green: 0.42, blue: 0.3), Color(red: 0.9, green: 0.25, blue: 0.35)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 30, height: 30)
+                    Image(systemName: "mic.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                }
+                Text("TalkKey")
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                if LicenseManager.shared.isPro {
+                    Text("PRO")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.yellow)
+                        .cornerRadius(4)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 44)
+            .padding(.bottom, 24)
+
+            SidebarButton(title: "Home", icon: "house.fill", isSelected: selectedTab == 0, namespace: tabIndicator) {
+                switchTab(to: 0)
+            }
+            SidebarButton(title: "History", icon: "clock.fill", isSelected: selectedTab == 1, namespace: tabIndicator) {
+                switchTab(to: 1)
+            }
+            SidebarButton(title: "Settings", icon: "gearshape.fill", isSelected: selectedTab == 2, namespace: tabIndicator) {
+                switchTab(to: 2)
+            }
+
+            Spacer()
+
+            VStack(alignment: .leading, spacing: 10) {
+                Button(action: {
+                    NotificationCenter.default.post(name: .init("checkForUpdates"), object: nil)
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 11))
+                        Text("Check for Updates")
+                            .font(.system(size: 12))
+                    }
+                    .foregroundColor(.white.opacity(0.5))
+                }
+                .buttonStyle(.plain)
+
+                Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
+                    .font(.system(size: 11))
+                    .foregroundColor(.white.opacity(0.3))
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 20)
+        }
+        .frame(width: 216)
+        .background(Color.white.opacity(0.03))
+    }
+
     private var tabTransition: AnyTransition {
         .opacity.combined(with: .scale(scale: 0.98))
     }
@@ -99,9 +163,9 @@ struct MainWindowView: View {
     }
 }
 
-// MARK: - Tab Button
+// MARK: - Sidebar Button
 
-struct TabButton: View {
+struct SidebarButton: View {
     let title: String
     let icon: String
     let isSelected: Bool
@@ -111,25 +175,31 @@ struct TabButton: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 6) {
+            HStack(spacing: 10) {
                 Image(systemName: icon)
-                    .font(.system(size: 18))
+                    .font(.system(size: 14))
+                    .frame(width: 20)
                 Text(title)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
+                Spacer()
             }
-            .foregroundColor(isSelected ? .white : .white.opacity(isHovering ? 0.65 : 0.4))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
+            .foregroundColor(isSelected ? .white : .white.opacity(isHovering ? 0.75 : 0.5))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
             .background {
                 if isSelected {
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: 8)
                         .fill(Color.white.opacity(0.1))
                         .matchedGeometryEffect(id: "tab-pill", in: namespace)
+                } else if isHovering {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.white.opacity(0.04))
                 }
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .padding(.horizontal, 10)
         .onHover { isHovering = $0 }
         .animation(.easeOut(duration: 0.15), value: isHovering)
     }
@@ -210,7 +280,9 @@ struct HomeTab: View {
 
                 Spacer(minLength: 20)
             }
-            .padding(24)
+            .padding(32)
+            .frame(maxWidth: 760)
+            .frame(maxWidth: .infinity)
         }
     }
 }
@@ -248,8 +320,10 @@ struct HistoryTab: View {
                     .foregroundColor(.red.opacity(0.7))
                     .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 12)
+                .padding(.horizontal, 32)
+                .padding(.top, 44)
+                .padding(.bottom, 12)
+                .frame(maxWidth: 760)
 
                 ScrollView {
                     LazyVStack(spacing: 8) {
@@ -257,8 +331,10 @@ struct HistoryTab: View {
                             HistoryItemRow(item: item)
                         }
                     }
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, 32)
                     .padding(.bottom, 24)
+                    .frame(maxWidth: 760)
+                    .frame(maxWidth: .infinity)
                 }
             }
         }
@@ -979,7 +1055,9 @@ struct SettingsTab: View {
 
                 Spacer(minLength: 20)
             }
-            .padding(24)
+            .padding(32)
+            .frame(maxWidth: 760)
+            .frame(maxWidth: .infinity)
         }
     }
 }
@@ -2163,8 +2241,8 @@ class MainWindowController: NSObject, NSWindowDelegate {
         let hostingView = NSHostingView(rootView: contentView)
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 700),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            contentRect: NSRect(x: 0, y: 0, width: 1060, height: 700),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -2172,8 +2250,13 @@ class MainWindowController: NSObject, NSWindowDelegate {
         window.contentView = hostingView
         window.title = "TalkKey"
         window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
         window.backgroundColor = NSColor(red: 0.05, green: 0.05, blue: 0.08, alpha: 1)
         window.delegate = self
+        window.setFrameAutosaveName("TalkKeyMainWindow")
+        if window.frame.width < 900 {
+            window.setContentSize(NSSize(width: 1060, height: 700))
+        }
         window.center()
         window.makeKeyAndOrderFront(nil)
 

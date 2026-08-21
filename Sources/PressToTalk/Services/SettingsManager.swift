@@ -111,8 +111,15 @@ class SettingsManager: ObservableObject {
         refreshMicrophones()
     }
 
+    /// Sentinel meaning "don't touch the input device — use whatever macOS
+    /// considers the default". This is the default behavior: TalkKey must not
+    /// grab the iPhone Continuity mic (or anything else) on its own.
+    static let systemDefaultMicID = "system-default"
+
     func refreshMicrophones() {
-        var devices: [AudioDevice] = []
+        var devices: [AudioDevice] = [
+            AudioDevice(id: Self.systemDefaultMicID, name: "System Default", deviceID: 0)
+        ]
 
         // Get all audio input devices using CoreAudio
         var propertyAddress = AudioObjectPropertyAddress(
@@ -130,90 +137,79 @@ class SettingsManager: ObservableObject {
             &dataSize
         )
 
-        guard status == noErr else {
-            devices.append(AudioDevice(id: "default", name: "Default Microphone", deviceID: 0))
-            availableMicrophones = devices
-            return
-        }
+        if status == noErr {
+            let deviceCount = Int(dataSize) / MemoryLayout<AudioDeviceID>.size
+            var deviceIDs = [AudioDeviceID](repeating: 0, count: deviceCount)
 
-        let deviceCount = Int(dataSize) / MemoryLayout<AudioDeviceID>.size
-        var deviceIDs = [AudioDeviceID](repeating: 0, count: deviceCount)
-
-        status = AudioObjectGetPropertyData(
-            AudioObjectID(kAudioObjectSystemObject),
-            &propertyAddress,
-            0,
-            nil,
-            &dataSize,
-            &deviceIDs
-        )
-
-        guard status == noErr else {
-            devices.append(AudioDevice(id: "default", name: "Default Microphone", deviceID: 0))
-            availableMicrophones = devices
-            return
-        }
-
-        // Filter only input devices
-        for deviceID in deviceIDs {
-            // Check if device has input channels
-            var inputPropertyAddress = AudioObjectPropertyAddress(
-                mSelector: kAudioDevicePropertyStreamConfiguration,
-                mScope: kAudioDevicePropertyScopeInput,
-                mElement: kAudioObjectPropertyElementMain
+            status = AudioObjectGetPropertyData(
+                AudioObjectID(kAudioObjectSystemObject),
+                &propertyAddress,
+                0,
+                nil,
+                &dataSize,
+                &deviceIDs
             )
 
-            var inputDataSize: UInt32 = 0
-            status = AudioObjectGetPropertyDataSize(deviceID, &inputPropertyAddress, 0, nil, &inputDataSize)
-
-            if status == noErr && inputDataSize > 0 {
-                let bufferListPointer = UnsafeMutablePointer<AudioBufferList>.allocate(capacity: 1)
-                defer { bufferListPointer.deallocate() }
-
-                status = AudioObjectGetPropertyData(deviceID, &inputPropertyAddress, 0, nil, &inputDataSize, bufferListPointer)
-
-                if status == noErr {
-                    let bufferList = bufferListPointer.pointee
-                    var totalChannels: UInt32 = 0
-
-                    // Get buffer count safely
-                    let bufferCount = Int(bufferList.mNumberBuffers)
-                    if bufferCount > 0 {
-                        // Access first buffer
-                        totalChannels = bufferList.mBuffers.mNumberChannels
-                    }
-
-                    if totalChannels > 0 {
-                        // Get device name
-                        var namePropertyAddress = AudioObjectPropertyAddress(
-                            mSelector: kAudioDevicePropertyDeviceNameCFString,
-                            mScope: kAudioObjectPropertyScopeGlobal,
-                            mElement: kAudioObjectPropertyElementMain
-                        )
-
-                        var name: CFString = "" as CFString
-                        var nameSize = UInt32(MemoryLayout<CFString>.size)
-
-                        status = AudioObjectGetPropertyData(deviceID, &namePropertyAddress, 0, nil, &nameSize, &name)
-
-                        let deviceName = status == noErr ? (name as String) : "Unknown Device"
-                        devices.append(AudioDevice(id: String(deviceID), name: deviceName, deviceID: deviceID))
-                    }
+            if status == noErr {
+                for deviceID in deviceIDs where hasInputChannels(deviceID) {
+                    // Key devices by their stable UID — the numeric AudioDeviceID
+                    // changes between launches, which used to make the saved
+                    // selection silently fall back to the first device found.
+                    guard let uid = deviceString(deviceID, kAudioDevicePropertyDeviceUID) else { continue }
+                    let name = deviceString(deviceID, kAudioDevicePropertyDeviceNameCFString) ?? "Unknown Device"
+                    devices.append(AudioDevice(id: uid, name: name, deviceID: deviceID))
                 }
             }
         }
 
-        // Add default option if no devices found
-        if devices.isEmpty {
-            devices.append(AudioDevice(id: "default", name: "Default Microphone", deviceID: 0))
-        }
-
         availableMicrophones = devices
 
-        // Set default if none selected or selected device not found
+        // Unknown or vanished selection → System Default, never "first device".
         if selectedMicrophoneID == nil || !devices.contains(where: { $0.id == selectedMicrophoneID }) {
-            selectedMicrophoneID = devices.first?.id
+            selectedMicrophoneID = Self.systemDefaultMicID
         }
+    }
+
+    private func hasInputChannels(_ deviceID: AudioDeviceID) -> Bool {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyStreamConfiguration,
+            mScope: kAudioDevicePropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        var dataSize: UInt32 = 0
+        var status = AudioObjectGetPropertyDataSize(deviceID, &address, 0, nil, &dataSize)
+        guard status == noErr, dataSize > 0 else { return false }
+
+        let bufferListPointer = UnsafeMutableRawPointer.allocate(
+            byteCount: Int(dataSize),
+            alignment: MemoryLayout<AudioBufferList>.alignment
+        )
+        defer { bufferListPointer.deallocate() }
+
+        status = AudioObjectGetPropertyData(deviceID, &address, 0, nil, &dataSize, bufferListPointer)
+        guard status == noErr else { return false }
+
+        let bufferList = UnsafeMutableAudioBufferListPointer(
+            bufferListPointer.assumingMemoryBound(to: AudioBufferList.self)
+        )
+        return bufferList.reduce(0) { $0 + $1.mNumberChannels } > 0
+    }
+
+    private func deviceString(_ deviceID: AudioDeviceID, _ selector: AudioObjectPropertySelector) -> String? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: selector,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        var unmanaged: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        let status = withUnsafeMutablePointer(to: &unmanaged) { pointer in
+            AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, pointer)
+        }
+        guard status == noErr, let value = unmanaged?.takeRetainedValue() else { return nil }
+        return value as String
     }
 }
 
@@ -232,7 +228,10 @@ struct AudioDevice: Identifiable, Hashable {
 // MARK: - Audio Device Helper
 
 func getSelectedAudioDeviceID() -> AudioDeviceID? {
+    // nil → recording uses whatever input macOS currently considers default;
+    // TalkKey switches devices only for an explicit user selection.
     guard let selectedID = SettingsManager.shared.selectedMicrophoneID,
+          selectedID != SettingsManager.systemDefaultMicID,
           let device = SettingsManager.shared.availableMicrophones.first(where: { $0.id == selectedID }) else {
         return nil
     }

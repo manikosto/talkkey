@@ -8,6 +8,27 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.14</title>
+      <sparkle:version>2.14</sparkle:version>
+      <sparkle:shortVersionString>2.14</sparkle:shortVersionString>
+      <pubDate>Fri, 21 Aug 2026 17:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.14</h2>
+        <ul>
+          <li>Fixed auto-detect sometimes translating your speech instead of transcribing it — ambiguous recordings are now decoded with both candidate languages and the confident one wins</li>
+          <li>Fixed the iPhone (Continuity) microphone being grabbed after every restart — TalkKey now uses the System Default input unless you explicitly pick a device, and remembers your choice reliably</li>
+          <li>All-new full-size main window with a sidebar — Home, History and Settings like a proper desktop app</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.14/TalkKey.zip"
+          sparkle:edSignature="6m/m2NQ531CTN4dp6n2kCU5za3VDtch9jJY0rBZGiAsHXu5v3pxOG16oQdsLvmawItyi3fWEt0/yqZ2vhhtMDQ=="
+          length="3162818"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.13</title>
       <sparkle:version>2.13</sparkle:version>
       <sparkle:shortVersionString>2.13</sparkle:shortVersionString>
