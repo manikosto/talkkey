@@ -26,17 +26,25 @@ class AudioRecorder {
     }
 
     // Minimum average level (in dB) to consider as actual speech
-    // Below this, we assume it's silence/noise and skip transcription
-    private let minimumSpeechLevel: Float = -45.0
+    // Below this, we assume it's silence/noise and skip transcription.
+    // Kept permissive: a rejected recording is far worse than a wasted
+    // transcription pass, and rejections are now surfaced via toast.
+    private let minimumSpeechLevel: Float = -50.0
 
     var isRecording: Bool {
         audioEngine?.isRunning ?? false
     }
 
+    private func resetSamplesBuffer() {
+        samplesLock.lock()
+        _currentAudioSamples = []
+        samplesLock.unlock()
+    }
+
     var hasSufficientAudio: Bool {
         guard levelSampleCount > 0 else { return false }
         let avgLevel = averageLevelSum / Float(levelSampleCount)
-        return avgLevel > minimumSpeechLevel || peakLevel > -35.0
+        return avgLevel > minimumSpeechLevel || peakLevel > -40.0
     }
 
     func startRecording() async throws {
@@ -52,9 +60,7 @@ class AudioRecorder {
         levelSampleCount = 0
 
         // Reset audio samples buffer
-        samplesLock.lock()
-        _currentAudioSamples = []
-        samplesLock.unlock()
+        resetSamplesBuffer()
         AudioLevelStore.shared.reset()
 
         // Set selected microphone as default input device

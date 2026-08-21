@@ -11,8 +11,21 @@ class PasteboardManager {
         targetAppBundleId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
     }
 
-    // Regular paste - type text directly (doesn't use clipboard)
-    func pasteText(_ text: String) {
+    // Regular paste — types the text into the target app via CGEvent.
+    // The transcript is ALWAYS put in the clipboard first as a safety net:
+    // synthetic typing can fail silently (revoked Accessibility, focus lost),
+    // and the user must never lose what they said.
+    // Returns false when typing could not even be attempted.
+    @discardableResult
+    func pasteText(_ text: String) -> Bool {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+
+        // Without Accessibility trust CGEvent posting goes nowhere — don't
+        // pretend it worked.
+        guard AXIsProcessTrusted() else { return false }
+
         // Activate the target app first
         if let bundleId = targetAppBundleId,
            let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first {
@@ -23,6 +36,7 @@ class PasteboardManager {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             self.typeText(text)
         }
+        return true
     }
 
     // Paste via clipboard (for Review window - saves and restores clipboard)

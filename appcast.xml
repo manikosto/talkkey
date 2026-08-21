@@ -8,6 +8,28 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.15</title>
+      <sparkle:version>2.15</sparkle:version>
+      <sparkle:shortVersionString>2.15</sparkle:shortVersionString>
+      <pubDate>Fri, 21 Aug 2026 19:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.15</h2>
+        <ul>
+          <li>Your transcript is never lost: the text is always copied to the clipboard before pasting, so even if auto-paste fails you can just press ⌘V</li>
+          <li>New result card: when something goes wrong (too quiet, nothing recognized, paste failed, error) a small floating card explains what happened, shows your text and offers a Copy button</li>
+          <li>Fixed silent failures — error notifications never actually appeared because notification permission was never requested</li>
+          <li>Quiet recordings are rejected less aggressively</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.15/TalkKey.zip"
+          sparkle:edSignature="13VSLVhOnqgrfvwSOFxhmt17CvufUAnh5LhWvY3fQwHArTmOjMa/8I/Y8eKJ3CltikxgykDFut7phROOQkAyDA=="
+          length="3182090"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.14</title>
       <sparkle:version>2.14</sparkle:version>
       <sparkle:shortVersionString>2.14</sparkle:shortVersionString>

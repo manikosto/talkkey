@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import Combine
 import Sparkle
+import UserNotifications
 
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -16,6 +17,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Create status bar item FIRST
         setupStatusItem()
+
+        // Without this, every UNUserNotificationCenter alert the app posts
+        // (errors, Pro prompts) is silently dropped — it was never requested.
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
 
         // Check permissions on launch
         Task {

@@ -242,7 +242,11 @@ class HotkeyManager {
             // Skip transcription if audio level was too low (silence/noise)
             guard hasSufficientAudio else {
                 try? FileManager.default.removeItem(at: audioURL)
-                showNotification(title: "No Speech Detected", body: "Recording was too quiet. Please speak louder or check your microphone.")
+                ResultToastController.shared.show(
+                    kind: .warning,
+                    title: "No speech detected",
+                    detail: "The recording was too quiet. Speak louder or check the selected microphone in Settings."
+                )
                 return
             }
 
@@ -265,19 +269,39 @@ class HotkeyManager {
                     }
 
                     switch currentMode {
-                    case .directPaste:
-                        PasteboardManager.shared.pasteText(text)
+                    case .directPaste, .translation:
+                        let typed = PasteboardManager.shared.pasteText(text)
                         HistoryManager.shared.add(text)
+                        if !typed {
+                            // Typing was impossible (no Accessibility) — the text
+                            // is already in the clipboard, tell the user.
+                            ResultToastController.shared.show(
+                                kind: .info,
+                                title: "Copied to clipboard — press ⌘V to paste",
+                                detail: text,
+                                copyText: text,
+                                duration: 10
+                            )
+                        }
                     case .review:
                         ReviewWindowController.shared.show(text: text)
-                    case .translation:
-                        PasteboardManager.shared.pasteText(text)
-                        HistoryManager.shared.add(text)
                     }
+                } else {
+                    // Whisper returned nothing — never fail silently
+                    ResultToastController.shared.show(
+                        kind: .warning,
+                        title: "Nothing recognized",
+                        detail: "Couldn't make out any words. Try again a bit closer to the microphone."
+                    )
                 }
             } catch {
                 AppState.shared.showErrorMessage(error.localizedDescription)
-                showNotification(title: "Error", body: error.localizedDescription)
+                ResultToastController.shared.show(
+                    kind: .error,
+                    title: "Transcription failed",
+                    detail: error.localizedDescription,
+                    duration: 10
+                )
             }
 
             AppState.shared.isTranscribing = false
