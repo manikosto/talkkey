@@ -8,6 +8,27 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.16</title>
+      <sparkle:version>2.16</sparkle:version>
+      <sparkle:shortVersionString>2.16</sparkle:shortVersionString>
+      <pubDate>Fri, 21 Aug 2026 21:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.16</h2>
+        <ul>
+          <li>Brand-new app icon — a keycap with a glowing waveform, drawn as vector art and rendered natively at every size for crisp edges from the Dock down to 16px</li>
+          <li>Redesigned installer: the DMG now opens a proper styled window with a dark background, drag-to-Applications arrow and a custom volume icon</li>
+          <li>The installer disk image is now signed, notarized and stapled</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.16/TalkKey.zip"
+          sparkle:edSignature="7I8lqHdxrUTHZLCpvvegvM0eCl0qHH537DldpqZryqcz+iwzc9VQRqLe/WX0R5BKZoJ9cRdJZc7CzsVKDlllDQ=="
+          length="4273844"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.15</title>
       <sparkle:version>2.15</sparkle:version>
       <sparkle:shortVersionString>2.15</sparkle:shortVersionString>
