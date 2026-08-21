@@ -157,6 +157,35 @@ class HotkeyManager {
         return (hotkeyPressed, hotkeyReleased)
     }
 
+    /// Click-to-start / click-to-stop from the floating control bar — the
+    /// hands-free counterpart to holding a hotkey, for long dictations.
+    @MainActor
+    func toggleRecordingFromUI() {
+        if isCurrentlyRecording || AppState.shared.isRecording {
+            isCurrentlyRecording = false
+            stopRecordingAndTranscribe()
+        } else {
+            // The mode is whatever the control bar has selected.
+            switch AppState.shared.currentRecordingMode {
+            case .directPaste: currentMode = .directPaste
+            case .review: currentMode = .review
+            case .translation: currentMode = .translation
+            }
+
+            if currentMode != .directPaste && !LicenseManager.checkIsPro() {
+                ResultToastController.shared.show(
+                    kind: .warning,
+                    title: "Pro feature",
+                    detail: "Review and Translate modes require a Pro license."
+                )
+                return
+            }
+
+            isCurrentlyRecording = true
+            startRecording()
+        }
+    }
+
     private func startRecording() {
         // Save the current app BEFORE showing overlay
         PasteboardManager.shared.saveCurrentApp()

@@ -8,6 +8,29 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.17</title>
+      <sparkle:version>2.17</sparkle:version>
+      <sparkle:shortVersionString>2.17</sparkle:shortVersionString>
+      <pubDate>Fri, 21 Aug 2026 23:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.17</h2>
+        <ul>
+          <li><b>Dictionary</b> — teach TalkKey the words it keeps getting wrong: product names, people, technical terms. Terms are fed to the speech model before decoding <i>and</i> repaired in the text afterwards, so they come out right both ways</li>
+          <li>Optional "fix near-misses" repairs words that came out almost right, while leaving plurals and Russian case endings alone</li>
+          <li>Both the dictionary and the near-miss repair can be switched off independently</li>
+          <li><b>Floating control bar</b> — start and stop dictation by clicking instead of holding a key, switch mode on the fly, jump to history. Toggle it from the menu bar (⌘B)</li>
+          <li>Click-to-record means long dictations no longer require holding the hotkey the whole time</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.17/TalkKey.zip"
+          sparkle:edSignature="UDbCYI4IpaGYmRM4ZBRhu/lgyfOrNQ0ra+KX3rqJCxTJj5QC0k6pe9WamXJiQ6GD1vgunMqy4XAV9ARjUbIbBg=="
+          length="4394733"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.16</title>
       <sparkle:version>2.16</sparkle:version>
       <sparkle:shortVersionString>2.16</sparkle:shortVersionString>

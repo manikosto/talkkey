@@ -174,7 +174,8 @@ class LocalTranscriptionService: ObservableObject {
             task: task,
             language: languageCode,
             usePrefillPrompt: true,
-            detectLanguage: false
+            detectLanguage: false,
+            promptTokens: primingTokens(whisperKit)
         )
 
         let results = try await whisperKit.transcribe(audioPath: audioURL.path, decodeOptions: options)
@@ -229,12 +230,23 @@ class LocalTranscriptionService: ObservableObject {
         )
     }
 
+    /// Custom-vocabulary terms encoded for `DecodingOptions.promptTokens`,
+    /// which biases the decoder toward spellings it would otherwise mangle.
+    private func primingTokens(_ whisperKit: WhisperKit) -> [Int]? {
+        guard let prompt = DictionaryManager.shared.primingPrompt(),
+              let tokenizer = whisperKit.tokenizer else { return nil }
+        let tokens = tokenizer.encode(text: " " + prompt)
+            .filter { $0 < tokenizer.specialTokens.specialTokenBegin }
+        return tokens.isEmpty ? nil : tokens
+    }
+
     private func decode(_ whisperKit: WhisperKit, audioURL: URL, language: String) async throws -> TranscriptionResult {
         let options = DecodingOptions(
             task: .transcribe,
             language: language,
             usePrefillPrompt: true,
-            detectLanguage: false
+            detectLanguage: false,
+            promptTokens: primingTokens(whisperKit)
         )
         let results = try await whisperKit.transcribe(audioPath: audioURL.path, decodeOptions: options)
         guard let result = results.first else {

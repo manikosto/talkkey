@@ -75,6 +75,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Show main window on first launch or if no API key
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             MainWindowController.shared.show()
+            ControlBarController.shared.restoreIfNeeded()
+            self.updateControlBarMenuItem()
         }
     }
 
@@ -109,6 +111,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let openItem = NSMenuItem(title: "Open TalkKey...", action: #selector(openMainWindow), keyEquivalent: "o")
         openItem.target = self
         menu.addItem(openItem)
+
+        // Floating control bar
+        let controlBarItem = NSMenuItem(title: "Show Control Bar", action: #selector(toggleControlBar), keyEquivalent: "b")
+        controlBarItem.target = self
+        controlBarItem.tag = 101
+        menu.addItem(controlBarItem)
 
         // Settings
         let settingsItem = NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ",")
@@ -160,6 +168,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openMainWindow() {
         MainWindowController.shared.show()
+    }
+
+    @objc private func toggleControlBar() {
+        ControlBarController.shared.toggle()
+        updateControlBarMenuItem()
+    }
+
+    private func updateControlBarMenuItem() {
+        guard let item = statusItem.menu?.item(withTag: 101) else { return }
+        item.title = ControlBarController.shared.isVisible ? "Hide Control Bar" : "Show Control Bar"
     }
 
     @objc private func openSettings() {

@@ -37,6 +37,9 @@ struct MainWindowView: View {
                     case 1:
                         HistoryTab(history: HistoryManager.shared)
                             .transition(tabTransition)
+                    case 2:
+                        DictionaryTab()
+                            .transition(tabTransition)
                     default:
                         SettingsTab(appState: appState, settings: settings)
                             .transition(tabTransition)
@@ -71,7 +74,13 @@ struct MainWindowView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .init("switchToSettings"))) { _ in
+            switchTab(to: 3)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .init("switchToDictionary"))) { _ in
             switchTab(to: 2)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .init("switchToHistory"))) { _ in
+            switchTab(to: 1)
         }
         .onReceive(NotificationCenter.default.publisher(for: .init("showLicenseKeyInput"))) { _ in
             switchTab(to: 0)  // Switch to Home tab where LicenseCard is
@@ -120,8 +129,11 @@ struct MainWindowView: View {
             SidebarButton(title: "History", icon: "clock.fill", isSelected: selectedTab == 1, namespace: tabIndicator) {
                 switchTab(to: 1)
             }
-            SidebarButton(title: "Settings", icon: "gearshape.fill", isSelected: selectedTab == 2, namespace: tabIndicator) {
+            SidebarButton(title: "Dictionary", icon: "character.book.closed.fill", isSelected: selectedTab == 2, namespace: tabIndicator) {
                 switchTab(to: 2)
+            }
+            SidebarButton(title: "Settings", icon: "gearshape.fill", isSelected: selectedTab == 3, namespace: tabIndicator) {
+                switchTab(to: 3)
             }
 
             Spacer()

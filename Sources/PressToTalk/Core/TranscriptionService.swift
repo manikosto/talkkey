@@ -61,7 +61,11 @@ class TranscriptionService {
             }
         }
 
-        // Step 2: Translate if requested
+        // Step 2: Repair custom-vocabulary terms the model still got wrong.
+        // Runs before translation so the translator sees correct terms.
+        text = await DictionaryManager.shared.apply(to: text)
+
+        // Step 3: Translate if requested
         if let targetLanguage = translateTo {
             let skipTranslation = settings.offlineModeEnabled && targetLanguage == .english
             if !skipTranslation {
@@ -114,6 +118,14 @@ class TranscriptionService {
             body.append("--\(boundary)\r\n")
             body.append("Content-Disposition: form-data; name=\"language\"\r\n\r\n")
             body.append("\(language.rawValue)\r\n")
+        }
+
+        // Custom vocabulary — Whisper's `prompt` biases recognition toward
+        // these spellings, the same role promptTokens plays locally.
+        if let prompt = await DictionaryManager.shared.primingPrompt() {
+            body.append("--\(boundary)\r\n")
+            body.append("Content-Disposition: form-data; name=\"prompt\"\r\n\r\n")
+            body.append("\(prompt)\r\n")
         }
 
         // Add audio file (m4a format)
