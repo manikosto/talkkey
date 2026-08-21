@@ -207,8 +207,12 @@ struct ControlBarView: View {
                     MainWindowController.shared.show()
                     NotificationCenter.default.post(name: .init("switchToSettings"), object: nil)
                 }
-                iconButton("xmark", tip: "Hide control bar") {
-                    ControlBarController.shared.hide()
+                // Closes this panel only — the bar itself stays put. Hiding
+                // the bar entirely lives in the menu bar item.
+                iconButton("xmark", tip: "Close") {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                        expanded = false
+                    }
                 }
             }
         }
@@ -363,28 +367,40 @@ struct WaveformCanvas: View {
 // MARK: - Window controller
 
 @MainActor
-final class ControlBarController: NSObject, NSWindowDelegate {
+final class ControlBarController {
     static let shared = ControlBarController()
 
     private let visibilityKey = "controlBarVisibleV2"
-    private let originKey = "controlBarOriginV2"
 
     private var panel: NSPanel?
     /// True when the bar was summoned only to indicate recording and should
     /// disappear again afterwards.
     private var shownForRecordingOnly = false
-    /// Guards against persisting a position before the panel has been placed:
-    /// the first layout pass fires a resize while the window is still at the
-    /// origin, and saving that would pin the bar to the bottom-left corner
-    /// on every later launch.
-    private var hasPositioned = false
+
 
     var isVisible: Bool { panel != nil }
 
     /// Visible by default — it is the app's recording indicator, not an extra.
     func restoreIfNeeded() {
+        migrateStaleHiddenState()
         let shouldShow = UserDefaults.standard.object(forKey: visibilityKey) as? Bool ?? true
         if shouldShow { show() }
+    }
+
+    /// Until 2.19 the close button in the quick settings hid the whole bar and
+    /// persisted that, so anyone who dismissed the settings panel lost the bar
+    /// for good. Clear that state once so those installs get it back; a
+    /// deliberate hide from the menu bar afterwards is still honoured.
+    private func migrateStaleHiddenState() {
+        let migrationKey = "controlBarHiddenStateResetV3"
+        guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
+        UserDefaults.standard.removeObject(forKey: visibilityKey)
+        // Stale autosaved frame from the version that parked the bar in the
+        // far-right corner; the bar is centred programmatically now.
+        UserDefaults.standard.removeObject(forKey: "NSWindow Frame TalkKeyControlBar")
+        UserDefaults.standard.removeObject(forKey: "controlBarVisible")
+        UserDefaults.standard.removeObject(forKey: "controlBarOriginV2")
+        UserDefaults.standard.set(true, forKey: migrationKey)
     }
 
     func toggle() {
@@ -420,8 +436,6 @@ final class ControlBarController: NSObject, NSWindowDelegate {
         self.panel = panel
         panel.setContentSize(hostingView.fittingSize)
         positionAtDefault(panel)
-        hasPositioned = true
-        panel.delegate = self
 
         panel.alphaValue = 0
         panel.orderFrontRegardless()
@@ -436,16 +450,8 @@ final class ControlBarController: NSObject, NSWindowDelegate {
         dismiss()
     }
 
-    func windowDidMove(_ notification: Notification) {
-        guard hasPositioned, let panel = panel else { return }
-        saveOrigin(panel)
-    }
-
     private func dismiss() {
         guard let panel = panel else { return }
-        saveOrigin(panel)
-        hasPositioned = false
-        panel.delegate = nil
         self.panel = nil
 
         NSAnimationContext.runAnimationGroup({ ctx in
@@ -476,8 +482,8 @@ final class ControlBarController: NSObject, NSWindowDelegate {
 
     // MARK: - Geometry
 
-    /// Grows and shrinks around a fixed bottom-centre anchor, so expanding
-    /// into the recording state does not shove the pill sideways.
+    /// Grows and shrinks around a fixed bottom-centre anchor, so opening the
+    /// quick settings does not shove the pill sideways.
     private func resize(_ panel: NSPanel, to size: CGSize) {
         let current = panel.frame
         guard abs(current.width - size.width) > 0.5 || abs(current.height - size.height) > 0.5 else { return }
@@ -488,31 +494,38 @@ final class ControlBarController: NSObject, NSWindowDelegate {
             width: size.width,
             height: size.height
         )
+
         panel.setFrame(frame, display: true, animate: false)
     }
 
+    /// Always horizontally centred, sitting just above the Dock.
+    ///
+    /// The position is deliberately not remembered between launches. A stored
+    /// position is a left-corner coordinate, and the bar's width changes every
+    /// time the quick settings open — so a remembered spot stops meaning
+    /// "centred" the moment the content grows, which is how the bar used to
+    /// drift off to one side. Dragging still works within a session.
     private func positionAtDefault(_ panel: NSPanel) {
-        guard let screen = NSScreen.main else { return }
+        guard let screen = activeScreen() else { return }
         let visible = screen.visibleFrame
 
-        if let saved = UserDefaults.standard.string(forKey: originKey) {
-            let point = NSPointFromString(saved)
-            let candidate = NSRect(origin: point, size: panel.frame.size)
-            // Honour a saved spot only if the whole pill is still comfortably
-            // on this screen — display arrangements change between launches.
-            if visible.insetBy(dx: -8, dy: -8).contains(candidate) {
-                panel.setFrameOrigin(point)
-                return
-            }
-        }
-
+        // visibleFrame already excludes the Dock, and the window carries the
+        // glow margin below the pill.
         panel.setFrameOrigin(NSPoint(
             x: visible.midX - panel.frame.width / 2,
-            y: visible.minY + 28
+            y: visible.minY
         ))
     }
 
-    private func saveOrigin(_ panel: NSPanel) {
-        UserDefaults.standard.set(NSStringFromPoint(panel.frame.origin), forKey: originKey)
+    /// The display the user is actually working on — the one under the mouse.
+    ///
+    /// `NSScreen.main` is the screen holding keyboard focus, which for a
+    /// menu-bar app at launch can be any attached display, so the bar could
+    /// appear on a monitor the user is not even looking at.
+    private func activeScreen() -> NSScreen? {
+        let mouse = NSEvent.mouseLocation
+        return NSScreen.screens.first { $0.frame.contains(mouse) }
+            ?? NSScreen.main
+            ?? NSScreen.screens.first
     }
 }

@@ -8,6 +8,28 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.20</title>
+      <sparkle:version>2.20</sparkle:version>
+      <sparkle:shortVersionString>2.20</sparkle:shortVersionString>
+      <pubDate>Sat, 22 Aug 2026 05:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.20</h2>
+        <ul>
+          <li>The control bar stays put — it no longer drifts off to the side when you open the quick settings. It is always centred just above the Dock</li>
+          <li>Closing the quick settings now closes only that panel, instead of hiding the whole control bar</li>
+          <li>If the bar disappeared for good after you closed the settings panel, this update brings it back</li>
+          <li>On a multi-display setup the bar now appears on the screen you are actually working on, not on an arbitrary monitor</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.20/TalkKey.zip"
+          sparkle:edSignature="j4dXshZ9Vr/gG6d3y39q0zNhB0aOhX/iTg6ecF89TUSVAxR6JTBuBYSACweVMmwDUVu8/IOBzsaswffmxQGJDg=="
+          length="4402695"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.19</title>
       <sparkle:version>2.19</sparkle:version>
       <sparkle:shortVersionString>2.19</sparkle:shortVersionString>
