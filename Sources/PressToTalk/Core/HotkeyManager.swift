@@ -196,7 +196,7 @@ class HotkeyManager {
             guard !AppState.shared.isRecording else { return }
 
             do {
-                try audioRecorder.startRecording()
+                try await audioRecorder.startRecording()
                 recordingStartTime = Date()
                 UsageTracker.shared.startRecording()
 

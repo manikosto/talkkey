@@ -31,7 +31,6 @@ class AppState: ObservableObject {
     @Published var isRecording = false
     @Published var isTranscribing = false
     @Published var currentRecordingMode: CurrentRecordingMode = .directPaste
-    @Published var audioLevels: [CGFloat] = Array(repeating: 0.05, count: 50)
     @Published var needsModelSetup = false
 
     // Permissions
@@ -68,14 +67,5 @@ class AppState: ObservableObject {
     func showErrorMessage(_ message: String) {
         lastError = message
         showError = true
-    }
-
-    func updateAudioLevel(_ level: CGFloat) {
-        audioLevels.removeFirst()
-        audioLevels.append(level)
-    }
-
-    func resetAudioLevels() {
-        audioLevels = Array(repeating: 0.05, count: 50)
     }
 }

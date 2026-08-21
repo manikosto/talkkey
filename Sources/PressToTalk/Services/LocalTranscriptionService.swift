@@ -173,9 +173,13 @@ class LocalTranscriptionService: ObservableObject {
             languageCode = language == .auto ? nil : language.rawValue
         }
 
+        // language == nil → run WhisperKit's language-detection pass; without
+        // detectLanguage: true a nil language silently falls back to English.
         let options = DecodingOptions(
             task: task,
-            language: languageCode
+            language: languageCode,
+            usePrefillPrompt: true,
+            detectLanguage: languageCode == nil
         )
 
         let results = try await whisperKit.transcribe(audioPath: audioURL.path, decodeOptions: options)
@@ -201,7 +205,9 @@ class LocalTranscriptionService: ObservableObject {
 
         let options = DecodingOptions(
             task: .transcribe,
-            language: languageCode
+            language: languageCode,
+            usePrefillPrompt: true,
+            detectLanguage: languageCode == nil
         )
 
         let results = try await whisperKit.transcribe(audioArray: audioSamples, decodeOptions: options)

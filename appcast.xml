@@ -8,6 +8,29 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.12</title>
+      <sparkle:version>2.12</sparkle:version>
+      <sparkle:shortVersionString>2.12</sparkle:shortVersionString>
+      <pubDate>Fri, 21 Aug 2026 12:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.12</h2>
+        <ul>
+          <li>Auto-detect language now works in Offline mode — speak any language without changing settings</li>
+          <li>Redesigned recording overlay: buttery-smooth waveform, recording timer, per-mode accent colors, gentle fade in/out</li>
+          <li>Major performance overhaul: the UI no longer re-renders 30× per second while recording — much lower CPU usage</li>
+          <li>Recording starts faster — removed a 100ms freeze when the hotkey is pressed</li>
+          <li>Smoother tab switching and status animations in the main window</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.12/TalkKey.zip"
+          sparkle:edSignature="OySB7qdoiPO2qLHALv39vuZWqPV5YY8BqG8owqYeI0nP2VPeSnq2yhGEYF0mvMq60pEsGoJFnm8daACXaPV0AA=="
+          length="3138495"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.11</title>
       <sparkle:version>2.11</sparkle:version>
       <sparkle:shortVersionString>2.11</sparkle:shortVersionString>

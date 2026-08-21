@@ -39,7 +39,7 @@ class AudioRecorder {
         return avgLevel > minimumSpeechLevel || peakLevel > -35.0
     }
 
-    func startRecording() throws {
+    func startRecording() async throws {
         // Check microphone permission first
         let status = AVCaptureDevice.authorizationStatus(for: .audio)
         guard status == .authorized else {
@@ -55,6 +55,7 @@ class AudioRecorder {
         samplesLock.lock()
         _currentAudioSamples = []
         samplesLock.unlock()
+        AudioLevelStore.shared.reset()
 
         // Set selected microphone as default input device
         if let selectedDeviceID = getSelectedAudioDeviceID() {
@@ -64,8 +65,8 @@ class AudioRecorder {
             if !success {
                 print("Warning: Failed to set audio input device \(selectedDeviceID)")
             }
-            // Small delay to let the system switch devices
-            Thread.sleep(forTimeInterval: 0.1)
+            // Give the system time to switch devices without blocking the main thread
+            try? await Task.sleep(nanoseconds: 100_000_000)
         }
 
         let tempDir = FileManager.default.temporaryDirectory
@@ -95,7 +96,7 @@ class AudioRecorder {
         self.audioFile = audioFile
 
         // Install tap on input node
-        let bufferSize: AVAudioFrameCount = 4096
+        let bufferSize: AVAudioFrameCount = 1024
         inputNode.installTap(onBus: 0, bufferSize: bufferSize, format: inputFormat) { [weak self] buffer, _ in
             guard let self = self else { return }
 
@@ -157,18 +158,13 @@ class AudioRecorder {
                 self.peakLevel = peakDB
             }
 
-            // Convert dB to 0-1 range for UI (throttled to ~30fps)
+            // Convert dB to 0-1 range for the overlay waveform. Written straight
+            // to the lock-protected store — no main-thread hop, no SwiftUI publish.
             let now = CACurrentMediaTime()
-            if now - self.lastLevelUpdateTime >= 0.033 {
+            if now - self.lastLevelUpdateTime >= AudioLevelStore.pushInterval {
                 self.lastLevelUpdateTime = now
                 let normalizedLevel = max(0, (rmsDB + 50) / 50)
-                let cgLevel = CGFloat(min(1.0, max(0.05, normalizedLevel)))
-
-                Task { @MainActor in
-                    withAnimation(.linear(duration: 0.06)) {
-                        AppState.shared.updateAudioLevel(cgLevel)
-                    }
-                }
+                AudioLevelStore.shared.push(min(1.0, max(0.04, normalizedLevel)))
             }
         }
 
@@ -194,9 +190,7 @@ class AudioRecorder {
             previousDefaultDevice = nil
         }
 
-        Task { @MainActor in
-            AppState.shared.resetAudioLevels()
-        }
+        AudioLevelStore.shared.reset()
 
         return recordingURL
     }
@@ -223,9 +217,7 @@ class AudioRecorder {
         _currentAudioSamples = []
         samplesLock.unlock()
 
-        Task { @MainActor in
-            AppState.shared.resetAudioLevels()
-        }
+        AudioLevelStore.shared.reset()
     }
 
     private func getCurrentDefaultInputDevice() -> AudioDeviceID? {

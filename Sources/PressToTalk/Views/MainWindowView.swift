@@ -4,8 +4,8 @@ import AVFoundation
 struct MainWindowView: View {
     @ObservedObject var appState: AppState
     @ObservedObject var settings = SettingsManager.shared
-    @ObservedObject var history = HistoryManager.shared
     @State private var selectedTab = 0
+    @Namespace private var tabIndicator
 
     var body: some View {
         ZStack {
@@ -23,29 +23,35 @@ struct MainWindowView: View {
             VStack(spacing: 0) {
                 // Tab bar
                 HStack(spacing: 0) {
-                    TabButton(title: "Home", icon: "house.fill", isSelected: selectedTab == 0) {
-                        selectedTab = 0
+                    TabButton(title: "Home", icon: "house.fill", isSelected: selectedTab == 0, namespace: tabIndicator) {
+                        switchTab(to: 0)
                     }
-                    TabButton(title: "History", icon: "clock.fill", isSelected: selectedTab == 1) {
-                        selectedTab = 1
+                    TabButton(title: "History", icon: "clock.fill", isSelected: selectedTab == 1, namespace: tabIndicator) {
+                        switchTab(to: 1)
                     }
-                    TabButton(title: "Settings", icon: "gearshape.fill", isSelected: selectedTab == 2) {
-                        selectedTab = 2
+                    TabButton(title: "Settings", icon: "gearshape.fill", isSelected: selectedTab == 2, namespace: tabIndicator) {
+                        switchTab(to: 2)
                     }
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 16)
 
-                // Content
-                TabView(selection: $selectedTab) {
-                    HomeTab(appState: appState, settings: settings)
-                        .tag(0)
-                    HistoryTab(history: history)
-                        .tag(1)
-                    SettingsTab(appState: appState, settings: settings)
-                        .tag(2)
+                // Content: only the active tab exists, so hidden tabs never
+                // observe state or re-render (unlike TabView which keeps all alive)
+                ZStack {
+                    switch selectedTab {
+                    case 0:
+                        HomeTab(appState: appState, settings: settings)
+                            .transition(tabTransition)
+                    case 1:
+                        HistoryTab(history: HistoryManager.shared)
+                            .transition(tabTransition)
+                    default:
+                        SettingsTab(appState: appState, settings: settings)
+                            .transition(tabTransition)
+                    }
                 }
-                .tabViewStyle(.automatic)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .frame(minWidth: 520, minHeight: 640)
@@ -53,8 +59,13 @@ struct MainWindowView: View {
         .onAppear {
             Task { await PermissionsManager.shared.checkAllPermissions() }
             settings.refreshMicrophones()
+            appState.updateUsageInfo()
         }
-        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+        .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in
+            // Poll only while the window is actually on screen — the hosting
+            // view stays alive when the window is hidden via the close button.
+            guard MainWindowController.shared.isWindowVisible else { return }
+
             // Check accessibility permission
             let trusted = AXIsProcessTrusted()
             if trusted != appState.hasAccessibilityPermission {
@@ -67,15 +78,23 @@ struct MainWindowView: View {
             if hasMic != appState.hasMicrophonePermission {
                 appState.hasMicrophonePermission = hasMic
             }
-
-            // Update usage info to refresh progress bar
-            appState.updateUsageInfo()
         }
         .onReceive(NotificationCenter.default.publisher(for: .init("switchToSettings"))) { _ in
-            selectedTab = 2
+            switchTab(to: 2)
         }
         .onReceive(NotificationCenter.default.publisher(for: .init("showLicenseKeyInput"))) { _ in
-            selectedTab = 0  // Switch to Home tab where LicenseCard is
+            switchTab(to: 0)  // Switch to Home tab where LicenseCard is
+        }
+    }
+
+    private var tabTransition: AnyTransition {
+        .opacity.combined(with: .scale(scale: 0.98))
+    }
+
+    private func switchTab(to tab: Int) {
+        guard tab != selectedTab else { return }
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+            selectedTab = tab
         }
     }
 }
@@ -86,7 +105,9 @@ struct TabButton: View {
     let title: String
     let icon: String
     let isSelected: Bool
+    let namespace: Namespace.ID
     let action: () -> Void
+    @State private var isHovering = false
 
     var body: some View {
         Button(action: action) {
@@ -96,16 +117,21 @@ struct TabButton: View {
                 Text(title)
                     .font(.system(size: 11, weight: .medium))
             }
-            .foregroundColor(isSelected ? .white : .white.opacity(0.4))
+            .foregroundColor(isSelected ? .white : .white.opacity(isHovering ? 0.65 : 0.4))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(isSelected ? Color.white.opacity(0.1) : Color.clear)
-            )
+            .background {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.white.opacity(0.1))
+                        .matchedGeometryEffect(id: "tab-pill", in: namespace)
+                }
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .animation(.easeOut(duration: 0.15), value: isHovering)
     }
 }
 
@@ -668,37 +694,13 @@ struct SettingsTab: View {
                         VStack(spacing: 0) {
                             SettingRow(icon: "globe", title: "Language", color: .blue) {
                                 Picker("", selection: $settings.selectedLanguage) {
-                                    // Auto-detect only for Cloud mode (small model doesn't detect well)
-                                    ForEach(WhisperLanguage.allCases.filter { lang in
-                                        settings.offlineModeEnabled ? lang != .auto : true
-                                    }) { lang in
+                                    ForEach(WhisperLanguage.allCases) { lang in
                                         Text(lang.displayName).tag(lang)
                                     }
                                 }
                                 .pickerStyle(.menu)
                                 .frame(width: 140)
-                                .onChange(of: settings.offlineModeEnabled) { _, isOffline in
-                                    // Switch from auto to English when going offline
-                                    if isOffline && settings.selectedLanguage == .auto {
-                                        settings.selectedLanguage = .english
-                                    }
-                                }
                             }
-
-                            if settings.offlineModeEnabled {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "info.circle")
-                                        .font(.system(size: 10))
-                                    Text("Auto-detect available in Cloud mode")
-                                        .font(.system(size: 11))
-                                }
-                                .foregroundColor(.white.opacity(0.5))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 14)
-                                .padding(.bottom, 10)
-                                .padding(.top, -4)
-                            }
-
                         }
                     }
                 }
@@ -1048,17 +1050,18 @@ struct HeroSection: View {
     var body: some View {
         VStack(spacing: 20) {
             ZStack {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [statusColor.opacity(0.4), statusColor.opacity(0)],
-                            center: .center,
-                            startRadius: 30,
-                            endRadius: 80
-                        )
-                    )
-                    .frame(width: 160, height: 160)
-                    .blur(radius: 20)
+                // Breathing glow: frame-driven only while recording, static otherwise
+                if appState.isRecording {
+                    TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+                        let t = timeline.date.timeIntervalSinceReferenceDate
+                        let pulse = 0.5 + 0.5 * sin(t * (2 * .pi / 1.8))
+                        glowCircle
+                            .scaleEffect(1.0 + 0.12 * pulse)
+                            .opacity(0.75 + 0.25 * pulse)
+                    }
+                } else {
+                    glowCircle
+                }
 
                 Circle()
                     .fill(
@@ -1082,8 +1085,11 @@ struct HeroSection: View {
                         .foregroundStyle(
                             LinearGradient(colors: [statusColor, statusColor.opacity(0.7)], startPoint: .top, endPoint: .bottom)
                         )
+                        .scaleEffect(appState.isRecording ? 1.08 : 1.0)
                 }
             }
+            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: appState.isRecording)
+            .animation(.easeInOut(duration: 0.35), value: statusText)
 
             VStack(spacing: 6) {
                 Text(statusText)
@@ -1093,8 +1099,23 @@ struct HeroSection: View {
                     .font(.system(size: 13))
                     .foregroundColor(.white.opacity(0.5))
             }
+            .animation(.easeInOut(duration: 0.25), value: statusText)
         }
         .padding(.vertical, 16)
+    }
+
+    private var glowCircle: some View {
+        Circle()
+            .fill(
+                RadialGradient(
+                    colors: [statusColor.opacity(0.4), statusColor.opacity(0)],
+                    center: .center,
+                    startRadius: 30,
+                    endRadius: 80
+                )
+            )
+            .frame(width: 160, height: 160)
+            .blur(radius: 20)
     }
 
     private var isModelLoading: Bool {
@@ -2125,6 +2146,10 @@ struct MicrophoneTestRow: View {
 class MainWindowController: NSObject, NSWindowDelegate {
     static let shared = MainWindowController()
     private var window: NSWindow?
+
+    var isWindowVisible: Bool {
+        window?.isVisible ?? false
+    }
 
     @MainActor
     func show() {
