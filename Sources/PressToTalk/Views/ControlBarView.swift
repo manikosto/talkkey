@@ -9,6 +9,7 @@ import AppKit
 /// staying frontmost), so the panel is non-activating throughout.
 struct ControlBarView: View {
     @ObservedObject var appState: AppState
+    @ObservedObject var settings = SettingsManager.shared
     @State private var expanded = false
 
     private var accent: Color {
@@ -22,17 +23,22 @@ struct ControlBarView: View {
     private var isActive: Bool { appState.isRecording || appState.isTranscribing }
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 7) {
             if expanded {
-                expandedControls
-                    .transition(.opacity.combined(with: .offset(y: 6)))
+                quickSettings
+                    .transition(.opacity.combined(with: .offset(y: 5)))
             }
 
             pill
         }
-        .padding(22)   // room for the glow to fade before the window edge
+        // The glow must fade out completely before the window edge, otherwise
+        // it is clipped into a visible rectangle with hard corners.
+        .padding(Self.glowMargin)
         .fixedSize()
     }
+
+    /// Comfortably larger than the widest shadow below (radius 14 + y offset).
+    private static let glowMargin: CGFloat = 30
 
     // MARK: - Pill
 
@@ -40,37 +46,37 @@ struct ControlBarView: View {
         TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !appState.isRecording)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
 
-            HStack(spacing: appState.isRecording ? 12 : 8) {
+            HStack(spacing: appState.isRecording ? 7 : 5) {
                 recordButton(time: t)
 
                 if appState.isRecording {
                     WaveformCanvas(accent: accent, frameTime: t)
-                        .frame(width: 150, height: 24)
+                        .frame(width: 84, height: 15)
 
                     Text(elapsed(now: timeline.date))
-                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
                         .foregroundColor(.white.opacity(0.7))
-                        .frame(width: 38, alignment: .trailing)
+                        .frame(width: 27, alignment: .trailing)
                 } else if appState.isTranscribing {
-                    HStack(spacing: 7) {
+                    HStack(spacing: 5) {
                         ProgressView()
-                            .scaleEffect(0.45)
-                            .frame(width: 12, height: 12)
+                            .scaleEffect(0.32)
+                            .frame(width: 9, height: 9)
                         Text("Transcribing")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.system(size: 9, weight: .medium))
                             .foregroundColor(.white.opacity(0.6))
                     }
-                    .padding(.trailing, 2)
+                    .padding(.trailing, 1)
                 }
 
                 chevronButton
             }
-            .padding(.horizontal, 11)
-            .padding(.vertical, 9)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 5)
             .background(pillBackground)
             .shadow(color: isActive ? accent.opacity(0.45) : .black.opacity(0.35),
-                    radius: isActive ? 20 : 12, y: 4)
-            .shadow(color: .black.opacity(0.3), radius: 8, y: 3)
+                    radius: isActive ? 14 : 8, y: 3)
+            .shadow(color: .black.opacity(0.3), radius: 6, y: 2)
         }
         .animation(.spring(response: 0.34, dampingFraction: 0.82), value: appState.isRecording)
         .animation(.easeInOut(duration: 0.22), value: appState.isTranscribing)
@@ -107,26 +113,26 @@ struct ControlBarView: View {
                 if appState.isRecording {
                     Circle()
                         .fill(accent.opacity(0.4 * pulse))
-                        .frame(width: 30, height: 30)
-                        .blur(radius: 5)
+                        .frame(width: 20, height: 20)
+                        .blur(radius: 3.5)
                 }
 
                 Circle()
                     .fill(appState.isRecording ? accent : Color.white.opacity(0.14))
-                    .frame(width: 26, height: 26)
+                    .frame(width: 18, height: 18)
 
                 if appState.isRecording {
-                    RoundedRectangle(cornerRadius: 2.5)
+                    RoundedRectangle(cornerRadius: 1.8)
                         .fill(Color.white)
-                        .frame(width: 9, height: 9)
+                        .frame(width: 6, height: 6)
                 } else {
                     Circle()
                         .fill(accent)
-                        .frame(width: 11, height: 11)
-                        .shadow(color: accent.opacity(0.7), radius: 4)
+                        .frame(width: 7.5, height: 7.5)
+                        .shadow(color: accent.opacity(0.7), radius: 3)
                 }
             }
-            .frame(width: 30, height: 30)
+            .frame(width: 20, height: 20)
             .scaleEffect(appState.isRecording ? 1 + 0.06 * pulse : 1)
         }
         .buttonStyle(.plain)
@@ -138,14 +144,14 @@ struct ControlBarView: View {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { expanded.toggle() }
         }) {
             Image(systemName: "chevron.up")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 8, weight: .semibold))
                 .foregroundColor(.white.opacity(0.55))
                 .rotationEffect(.degrees(expanded ? 180 : 0))
-                .frame(width: 24, height: 24)
+                .frame(width: 18, height: 18)
                 .background(Circle().fill(Color.white.opacity(0.1)))
         }
         .buttonStyle(.plain)
-        .help("More")
+        .help("Quick settings")
     }
 
     private func elapsed(now: Date) -> String {
@@ -156,36 +162,82 @@ struct ControlBarView: View {
 
     // MARK: - Expanded
 
-    private var expandedControls: some View {
-        HStack(spacing: 6) {
-            modeChip(.directPaste, icon: "bolt.fill", label: "Paste")
-            modeChip(.review, icon: "wand.and.stars", label: "Review")
-            modeChip(.translation, icon: "globe", label: "Translate")
-
-            Divider()
-                .frame(height: 18)
-                .overlay(Color.white.opacity(0.12))
-
-            iconButton("clock.fill", tip: "History") {
-                MainWindowController.shared.show()
-                NotificationCenter.default.post(name: .init("switchToHistory"), object: nil)
+    /// Quick settings behind the chevron: the handful of things worth changing
+    /// without opening the main window.
+    private var quickSettings: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 4) {
+                modeChip(.directPaste, icon: "bolt.fill", label: "Paste")
+                modeChip(.review, icon: "wand.and.stars", label: "Review")
+                modeChip(.translation, icon: "globe", label: "Translate")
             }
-            iconButton("character.book.closed.fill", tip: "Dictionary") {
-                MainWindowController.shared.show()
-                NotificationCenter.default.post(name: .init("switchToDictionary"), object: nil)
-            }
-            iconButton("xmark", tip: "Hide control bar") {
-                ControlBarController.shared.hide()
+
+            HStack(spacing: 5) {
+                Text("Language")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(.white.opacity(0.45))
+
+                languageChip(.auto, label: "Auto")
+                languageChip(.english, label: "EN")
+                languageChip(.russian, label: "RU")
+
+                Menu {
+                    ForEach(WhisperLanguage.allCases) { lang in
+                        Button(lang.displayName) { settings.selectedLanguage = lang }
+                    }
+                } label: {
+                    Text(isCommonLanguage ? "…" : settings.selectedLanguage.displayName)
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(isCommonLanguage ? .white.opacity(0.5) : .white)
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(Color.white.opacity(isCommonLanguage ? 0.06 : 0.16)))
+
+                Spacer(minLength: 2)
+
+                iconButton("character.book.closed.fill", tip: "Dictionary") {
+                    MainWindowController.shared.show()
+                    NotificationCenter.default.post(name: .init("switchToDictionary"), object: nil)
+                }
+                iconButton("gearshape.fill", tip: "Settings") {
+                    MainWindowController.shared.show()
+                    NotificationCenter.default.post(name: .init("switchToSettings"), object: nil)
+                }
+                iconButton("xmark", tip: "Hide control bar") {
+                    ControlBarController.shared.hide()
+                }
             }
         }
-        .padding(6)
+        .padding(7)
         .background(
-            Capsule()
+            RoundedRectangle(cornerRadius: 13)
                 .fill(.ultraThinMaterial)
-                .overlay(Capsule().fill(Color.black.opacity(0.3)))
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.13), lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 13).fill(Color.black.opacity(0.35)))
+                .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Color.white.opacity(0.13), lineWidth: 1))
         )
-        .shadow(color: .black.opacity(0.3), radius: 10, y: 3)
+        .shadow(color: .black.opacity(0.3), radius: 8, y: 2)
+    }
+
+    private var isCommonLanguage: Bool {
+        [.auto, .english, .russian].contains(settings.selectedLanguage)
+    }
+
+    private func languageChip(_ language: WhisperLanguage, label: String) -> some View {
+        let isSelected = settings.selectedLanguage == language
+        return Button(action: { settings.selectedLanguage = language }) {
+            Text(label)
+                .font(.system(size: 9, weight: .medium))
+                .foregroundColor(isSelected ? .white : .white.opacity(0.5))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(isSelected ? accent.opacity(0.35) : Color.white.opacity(0.06)))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     private func modeChip(_ mode: CurrentRecordingMode, icon: String, label: String) -> some View {
@@ -194,15 +246,15 @@ struct ControlBarView: View {
             guard !appState.isRecording else { return }
             appState.currentRecordingMode = mode
         }) {
-            HStack(spacing: 5) {
+            HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 9))
+                    .font(.system(size: 8))
                 Text(label)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 9, weight: .medium))
             }
             .foregroundColor(isSelected ? .white : .white.opacity(0.5))
-            .padding(.horizontal, 9)
-            .padding(.vertical, 5)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 4)
             .background(Capsule().fill(isSelected ? Color.white.opacity(0.16) : Color.clear))
             .contentShape(Capsule())
         }
@@ -213,9 +265,9 @@ struct ControlBarView: View {
     private func iconButton(_ icon: String, tip: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(size: 8, weight: .medium))
                 .foregroundColor(.white.opacity(0.6))
-                .frame(width: 24, height: 24)
+                .frame(width: 18, height: 18)
                 .background(Circle().fill(Color.white.opacity(0.08)))
         }
         .buttonStyle(.plain)

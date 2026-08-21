@@ -8,7 +8,15 @@ class PasteboardManager {
     private var targetAppBundleId: String?
 
     func saveCurrentApp() {
-        targetAppBundleId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        guard let frontmost = NSWorkspace.shared.frontmostApplication?.bundleIdentifier else { return }
+
+        // Interacting with the control bar (a quick-settings menu, say) can
+        // make TalkKey frontmost. Targeting ourselves would type the
+        // transcript into our own window instead of the user's document, so
+        // keep the previous target in that case.
+        guard frontmost != Bundle.main.bundleIdentifier else { return }
+
+        targetAppBundleId = frontmost
     }
 
     // Regular paste — types the text into the target app via CGEvent.

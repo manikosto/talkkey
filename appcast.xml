@@ -8,6 +8,28 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.19</title>
+      <sparkle:version>2.19</sparkle:version>
+      <sparkle:shortVersionString>2.19</sparkle:shortVersionString>
+      <pubDate>Sat, 22 Aug 2026 03:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.19</h2>
+        <ul>
+          <li>The control bar is half the size — a genuinely tiny pill that stays out of the way</li>
+          <li>Fixed the square halo: the glow was being clipped by the window edge and showed hard corners</li>
+          <li>The chevron now opens quick settings instead of just collapsing: switch language (Auto / EN / RU or any other), change mode, jump to Dictionary or Settings</li>
+          <li>Fixed the transcript being typed into TalkKey itself if the app happened to be frontmost when a recording started</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.19/TalkKey.zip"
+          sparkle:edSignature="WQVN6mXQbnLONOx9aaft1uz47tWjd5D+GPtzRqqmYGCOIk2/XfeAh4Q4AyuPSKEgy3cnGG+baOWHND8+Z0eXDw=="
+          length="4403193"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.18</title>
       <sparkle:version>2.18</sparkle:version>
       <sparkle:shortVersionString>2.18</sparkle:shortVersionString>
