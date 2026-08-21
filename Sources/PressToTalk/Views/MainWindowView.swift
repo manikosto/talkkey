@@ -1024,19 +1024,18 @@ struct HeroSection: View {
                 Circle()
                     .fill(
                         LinearGradient(
-                            colors: [Color(red: 0.15, green: 0.15, blue: 0.2), Color(red: 0.1, green: 0.1, blue: 0.15)],
+                            colors: [Color.white, statusColor.opacity(0.08)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
                     .frame(width: 100, height: 100)
-                    .overlay(Circle().stroke(statusColor.opacity(0.5), lineWidth: 2))
-                    .shadow(color: statusColor.opacity(0.3), radius: 20)
+                    .overlay(Circle().stroke(statusColor.opacity(0.45), lineWidth: 2))
+                    .shadow(color: statusColor.opacity(0.22), radius: 18, y: 6)
+                    .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
 
                 if isModelLoading {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: statusColor))
-                        .scaleEffect(1.5)
+                    Spinner(size: 34, color: statusColor, lineWidth: 3)
                 } else {
                     Image(systemName: statusIcon)
                         .font(.system(size: 40, weight: .medium))
@@ -1481,78 +1480,7 @@ struct TranscriptionModeSelector: View {
 
             // Mode-specific content
             if transcriptionMode == .offline {
-                // Offline mode: Model status and download
-                SettingsCard {
-                    VStack(spacing: 0) {
-                        HStack {
-                            HStack(spacing: 12) {
-                                ZStack {
-                                    Circle()
-                                        .fill(Theme.accentOrange.opacity(0.2))
-                                        .frame(width: 32, height: 32)
-                                    if localTranscription.isModelLoading {
-                                        ProgressView()
-                                            .scaleEffect(0.7)
-                                            .progressViewStyle(CircularProgressViewStyle(tint: Theme.accentOrange))
-                                    } else {
-                                        Image(systemName: localTranscription.isModelLoaded ? "checkmark" : (localTranscription.hasAnyModel ? "circle" : "arrow.down.circle"))
-                                            .font(.system(size: 14))
-                                            .foregroundColor(localTranscription.isModelLoaded ? Theme.accentGreen : Theme.accentOrange)
-                                    }
-                                }
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Whisper Model")
-                                        .font(.system(size: 13, weight: .medium))
-                                        .foregroundColor(Theme.textPrimary)
-                                    if localTranscription.isModelLoading || localTranscription.isDownloading {
-                                        Text("Preparing model...")
-                                            .font(.system(size: 11))
-                                            .foregroundColor(Theme.accentOrange)
-                                    } else if localTranscription.isModelLoaded {
-                                        Text(localTranscription.modelDisplayName[localTranscription.selectedModel] ?? localTranscription.selectedModel)
-                                            .font(.system(size: 11))
-                                            .foregroundColor(Theme.accentGreen)
-                                    } else if localTranscription.hasAnyModel {
-                                        Text("Not loaded — tap to activate")
-                                            .font(.system(size: 11))
-                                            .foregroundColor(Theme.accentOrange)
-                                    } else {
-                                        Text("No model — download below")
-                                            .font(.system(size: 11))
-                                            .foregroundColor(Theme.accentOrange)
-                                    }
-                                }
-                            }
-
-                            Spacer()
-
-                            if localTranscription.isModelLoading {
-                                HStack(spacing: 6) {
-                                    ProgressView()
-                                        .scaleEffect(0.6)
-                                        .progressViewStyle(CircularProgressViewStyle(tint: Theme.accentOrange))
-                                    Text("Loading...")
-                                        .font(.system(size: 12, weight: .medium))
-                                        .foregroundColor(Theme.accentOrange)
-                                }
-                            } else if localTranscription.isModelLoaded {
-                                HStack(spacing: 6) {
-                                    Circle()
-                                        .fill(Theme.accentGreen)
-                                        .frame(width: 8, height: 8)
-                                    Text("Ready")
-                                        .font(.system(size: 12, weight: .medium))
-                                        .foregroundColor(Theme.accentGreen)
-                                }
-                            }
-                        }
-                        .padding(14)
-                    }
-                }
-
-                // Model selection (always visible)
-                ModelSelectionCard(localTranscription: localTranscription)
+                ModelLibraryCard(localTranscription: localTranscription)
             } else {
                 // Cloud mode: API Key
                 SettingsCard {
@@ -1629,8 +1557,7 @@ struct TranscriptionModeSelector: View {
                                     Button(action: saveAPIKey) {
                                         HStack(spacing: 6) {
                                             if isSavingKey {
-                                                ProgressView()
-                                                    .scaleEffect(0.7)
+                                                Spinner(size: 15, color: .white)
                                             } else {
                                                 Image(systemName: "checkmark.circle.fill")
                                             }
@@ -1688,174 +1615,6 @@ struct TranscriptionModeSelector: View {
                 showKeyField = false
                 isSavingKey = false
             }
-        }
-    }
-}
-
-// MARK: - Model Selection Card
-
-struct ModelSelectionCard: View {
-    @ObservedObject var localTranscription: LocalTranscriptionService
-    @State private var selectedModel: String
-    @State private var isLoading = false
-    @State private var loadError: String?
-    @State private var showModelPicker = false
-
-    init(localTranscription: LocalTranscriptionService) {
-        self.localTranscription = localTranscription
-        self._selectedModel = State(initialValue: localTranscription.selectedModel)
-    }
-
-    private var isCurrentModelLoaded: Bool {
-        localTranscription.isModelLoaded && localTranscription.selectedModel == selectedModel
-    }
-
-    private var needsDownload: Bool {
-        !localTranscription.isModelDownloaded(selectedModel)
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            // Header with model picker
-            HStack {
-                Text("AI Model")
-                    .font(.system(size: 12))
-                    .foregroundColor(Theme.textSecondary)
-
-                Spacer()
-
-                Picker("", selection: $selectedModel) {
-                    ForEach(localTranscription.availableModels, id: \.self) { model in
-                        HStack {
-                            Text(localTranscription.modelDisplayName[model] ?? model)
-                            if let size = localTranscription.modelSizeDescription[model] {
-                                Text("• \(size)")
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        .tag(model)
-                    }
-                }
-                .pickerStyle(.menu)
-                .frame(width: 220)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-
-            Divider()
-                .background(Theme.cardBorder)
-
-            // Model info
-            HStack(spacing: 8) {
-                // Status icon
-                ZStack {
-                    Circle()
-                        .fill(statusColor.opacity(0.2))
-                        .frame(width: 28, height: 28)
-
-                    if isLoading || localTranscription.isModelLoading {
-                        ProgressView()
-                            .scaleEffect(0.6)
-                            .progressViewStyle(CircularProgressViewStyle(tint: statusColor))
-                    } else {
-                        Image(systemName: statusIcon)
-                            .font(.system(size: 12))
-                            .foregroundColor(statusColor)
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(localTranscription.modelDisplayName[selectedModel] ?? selectedModel)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(Theme.textPrimary)
-                    Text(statusText)
-                        .font(.system(size: 11))
-                        .foregroundColor(statusColor.opacity(0.8))
-                }
-
-                Spacer()
-
-                // Action button
-                if !isCurrentModelLoaded && !localTranscription.isModelLoading && !isLoading {
-                    Button(action: loadSelectedModel) {
-                        HStack(spacing: 4) {
-                            Image(systemName: needsDownload ? "arrow.down.circle.fill" : "bolt.fill")
-                                .font(.system(size: 11))
-                            Text(needsDownload ? "Download" : "Load")
-                                .font(.system(size: 12, weight: .medium))
-                        }
-                        .foregroundColor(Theme.textPrimary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(needsDownload ? Theme.accentOrange : Theme.accentGreen)
-                        .cornerRadius(6)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(14)
-
-            if let error = loadError {
-                Divider()
-                    .background(Theme.cardBorder)
-                Text(error)
-                    .font(.system(size: 11))
-                    .foregroundColor(Theme.accentRed)
-                    .padding(10)
-            }
-        }
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Theme.card)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(statusColor.opacity(0.2), lineWidth: 1)
-                )
-        )
-    }
-
-    private var statusIcon: String {
-        if isCurrentModelLoaded {
-            return "checkmark.circle.fill"
-        } else if localTranscription.isModelDownloaded(selectedModel) {
-            return "circle"
-        } else {
-            return "arrow.down.circle"
-        }
-    }
-
-    private var statusColor: Color {
-        if isCurrentModelLoaded {
-            return Theme.accentGreen
-        } else if localTranscription.isModelDownloaded(selectedModel) {
-            return Theme.accentBlue
-        } else {
-            return Theme.accentOrange
-        }
-    }
-
-    private var statusText: String {
-        if isLoading || localTranscription.isModelLoading {
-            return needsDownload ? "Downloading..." : "Loading..."
-        } else if isCurrentModelLoaded {
-            return "Active"
-        } else if localTranscription.isModelDownloaded(selectedModel) {
-            return "Downloaded — Tap Load to activate"
-        } else {
-            return localTranscription.modelQualityDescription[selectedModel] ?? "Requires download"
-        }
-    }
-
-    private func loadSelectedModel() {
-        Task {
-            isLoading = true
-            loadError = nil
-            do {
-                try await localTranscription.loadModel(selectedModel)
-            } catch {
-                loadError = error.localizedDescription
-            }
-            isLoading = false
         }
     }
 }
@@ -1942,9 +1701,7 @@ struct ModelSetupBanner: View {
             Button(action: downloadModel) {
                 HStack(spacing: 8) {
                     if isDownloading {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        Spinner(size: 16, color: .white)
                     } else {
                         Image(systemName: "arrow.down.circle.fill")
                             .font(.system(size: 14))

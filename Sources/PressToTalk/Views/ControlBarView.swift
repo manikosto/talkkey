@@ -59,9 +59,7 @@ struct ControlBarView: View {
                         .frame(width: 27, alignment: .trailing)
                 } else if appState.isTranscribing {
                     HStack(spacing: 5) {
-                        ProgressView()
-                            .scaleEffect(0.32)
-                            .frame(width: 9, height: 9)
+                        Spinner(size: 10, color: accent, lineWidth: 1.5)
                         Text("Transcribing")
                             .font(.system(size: 9, weight: .medium))
                             .foregroundColor(.white.opacity(0.6))

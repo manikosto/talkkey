@@ -88,8 +88,7 @@ struct ReviewWindowView: View {
                             .foregroundColor(.white.opacity(0.5))
 
                         if isRewriting {
-                            ProgressView()
-                                .scaleEffect(0.6)
+                            Spinner(size: 15, color: .white)
                         }
 
                         Spacer()
@@ -113,7 +112,7 @@ struct ReviewWindowView: View {
                     if isRewriting {
                         HStack {
                             Spacer()
-                            ProgressView()
+                            Spinner(size: 15, color: .white)
                                 .progressViewStyle(.circular)
                             Spacer()
                         }

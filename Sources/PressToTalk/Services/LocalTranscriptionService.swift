@@ -293,14 +293,57 @@ class LocalTranscriptionService: ObservableObject {
     }
 
     func deleteModel(_ model: String) throws {
+        // Unload first: deleting the files under a loaded model leaves
+        // WhisperKit holding references to weights that no longer exist.
+        if model == selectedModel && isModelLoaded {
+            unloadModel()
+        }
+
         let modelPath = whisperKitModelBase.appendingPathComponent("openai_whisper-\(model)")
         if FileManager.default.fileExists(atPath: modelPath.path) {
             try FileManager.default.removeItem(at: modelPath)
         }
 
-        if model == selectedModel {
-            unloadModel()
+        // Fall back to another installed model so offline mode keeps working.
+        if model == selectedModel, let next = availableModels.first(where: { isModelDownloaded($0) }) {
+            selectedModel = next
+            UserDefaults.standard.set(next, forKey: "selectedWhisperModel")
         }
+
+        objectWillChange.send()
+    }
+
+    /// Bytes a downloaded model occupies, or nil when it isn't installed.
+    func diskSize(of model: String) -> Int64? {
+        let path = whisperKitModelBase.appendingPathComponent("openai_whisper-\(model)")
+        guard FileManager.default.fileExists(atPath: path.path) else { return nil }
+
+        guard let files = FileManager.default.enumerator(
+            at: path,
+            includingPropertiesForKeys: [.totalFileAllocatedSizeKey, .fileAllocatedSizeKey]
+        ) else { return nil }
+
+        var total: Int64 = 0
+        for case let url as URL in files {
+            let values = try? url.resourceValues(forKeys: [.totalFileAllocatedSizeKey, .fileAllocatedSizeKey])
+            total += Int64(values?.totalFileAllocatedSize ?? values?.fileAllocatedSize ?? 0)
+        }
+        return total
+    }
+
+    var totalDiskUsage: Int64 {
+        availableModels.compactMap { diskSize(of: $0) }.reduce(0, +)
+    }
+
+    var installedModels: [String] {
+        availableModels.filter { isModelDownloaded($0) }
+    }
+
+    static func formatBytes(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useMB, .useGB]
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: bytes)
     }
 
     var modelSizeDescription: [String: String] {

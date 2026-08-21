@@ -8,6 +8,28 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.22</title>
+      <sparkle:version>2.22</sparkle:version>
+      <sparkle:shortVersionString>2.22</sparkle:shortVersionString>
+      <pubDate>Sat, 22 Aug 2026 13:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.22</h2>
+        <ul>
+          <li><b>Manage your speech models</b> — one list showing every model, what it takes up on disk, and whether it is installed. Download the ones you want, delete the ones you don't, and see your total disk usage at a glance</li>
+          <li>All loading indicators redrawn: smooth gradient spinners instead of the old spoked wheel, and a real progress ring for downloads</li>
+          <li>Fixed the loading screen looking like a dark blob on the light theme</li>
+          <li>Removed a duplicate model status card — the model list already shows everything</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.22/TalkKey.zip"
+          sparkle:edSignature="ptvCkH+Pmpcr9u1CL9pKc6tYkAmwMITLKVzt7RwoQsuk+uT+D4I2jBcnQglDPnHyO6yPosEA3AU3ZwNK1lasAg=="
+          length="4418206"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.21</title>
       <sparkle:version>2.21</sparkle:version>
       <sparkle:shortVersionString>2.21</sparkle:shortVersionString>
