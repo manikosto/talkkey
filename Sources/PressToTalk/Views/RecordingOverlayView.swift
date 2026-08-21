@@ -58,7 +58,11 @@ struct RecordingOverlayView: View {
             .shadow(color: accent.opacity(0.25), radius: 18, y: 6)
             .shadow(color: .black.opacity(0.35), radius: 10, y: 4)
         }
-        .frame(width: 280, height: 72)
+        // The window must be comfortably larger than the pill, otherwise the
+        // soft shadows clip against the rectangular window bounds and show up
+        // as a square halo around the capsule.
+        .frame(width: RecordingOverlayWindowController.overlaySize.width,
+               height: RecordingOverlayWindowController.overlaySize.height)
     }
 
     private func pulsingDot(time: TimeInterval) -> some View {
@@ -149,6 +153,10 @@ private struct WaveformCanvas: View {
 final class RecordingOverlayWindowController {
     static let shared = RecordingOverlayWindowController()
 
+    /// Window size with enough margin around the ~254×52 pill for its
+    /// shadows to fade out before hitting the window edge.
+    static let overlaySize = NSSize(width: 340, height: 124)
+
     private var panel: NSPanel?
     private var generation = 0
 
@@ -169,7 +177,7 @@ final class RecordingOverlayWindowController {
         let hostingView = NSHostingView(rootView: view)
 
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 280, height: 72),
+            contentRect: NSRect(origin: .zero, size: Self.overlaySize),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -224,9 +232,11 @@ final class RecordingOverlayWindowController {
     private func targetOrigin(for window: NSWindow) -> NSPoint {
         guard let screen = NSScreen.main else { return .zero }
         let screenFrame = screen.visibleFrame
+        // Keep the pill's visual center where it was (~116pt above the screen
+        // bottom) despite the larger window with shadow margins.
         return NSPoint(
             x: screenFrame.midX - window.frame.width / 2,
-            y: screenFrame.minY + 80
+            y: screenFrame.minY + 116 - window.frame.height / 2
         )
     }
 }
