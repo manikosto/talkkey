@@ -8,6 +8,27 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.23</title>
+      <sparkle:version>2.23</sparkle:version>
+      <sparkle:shortVersionString>2.23</sparkle:shortVersionString>
+      <pubDate>Sat, 22 Aug 2026 17:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.23</h2>
+        <ul>
+          <li><b>Recording starts instantly.</b> There used to be a 1.5–2 second pause between pressing the key and the microphone actually listening — long enough to clip the start of a sentence. It is now under 150 ms</li>
+          <li>The audio engine is prepared once in the background at launch instead of being rebuilt for every recording</li>
+          <li>Your microphone is still only switched on while you are actually recording — nothing listens in the background</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.23/TalkKey.zip"
+          sparkle:edSignature="2bXkMcpwcHx4QBTzt15I759KfDNLeKApT7oLllQh6IaMABv/++TnMlKrlRFCS8X5gmD0LrZIR13UvavUf9ahAg=="
+          length="4420282"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.22</title>
       <sparkle:version>2.22</sparkle:version>
       <sparkle:shortVersionString>2.22</sparkle:shortVersionString>

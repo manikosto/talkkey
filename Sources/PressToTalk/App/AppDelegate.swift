@@ -26,6 +26,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Check permissions on launch
         Task {
             await PermissionsManager.shared.checkAllPermissions()
+
+            // Spinning up the audio HAL costs ~1s. Pay it here, off the main
+            // thread, so the first hotkey press records immediately instead of
+            // waiting for the engine to come up.
+            Task.detached(priority: .utility) {
+                AudioRecorder.shared.prewarm()
+            }
         }
 
         // Auto-load previously downloaded model if available

@@ -25,6 +25,12 @@ class PermissionsManager: ObservableObject {
         let granted = await AVCaptureDevice.requestAccess(for: .audio)
         AppState.shared.hasMicrophonePermission = granted
 
+        // Warm the audio engine as soon as we're allowed to, so the first
+        // recording after granting access starts instantly too.
+        if granted {
+            Task.detached(priority: .utility) { AudioRecorder.shared.prewarm() }
+        }
+
         // If not granted, check why and open settings if needed
         if !granted {
             let status = AVCaptureDevice.authorizationStatus(for: .audio)
