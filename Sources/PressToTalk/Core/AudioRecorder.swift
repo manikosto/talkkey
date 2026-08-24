@@ -1,6 +1,25 @@
 import AVFoundation
 import CoreAudio
 import SwiftUI
+import ObjCExceptionCatcher
+
+/// Builds the 16 kHz converter from the format audio actually arrives in, and
+/// rebuilds it if that format changes mid-recording (device switched, engine
+/// reconfigured). Confined to the audio thread that owns the tap.
+private final class ConverterBox {
+    private var cached: AVAudioConverter?
+    private var cachedFormat: AVAudioFormat?
+
+    func converter(from source: AVAudioFormat, to target: AVAudioFormat) -> AVAudioConverter? {
+        if let cached, let cachedFormat, cachedFormat == source {
+            return cached
+        }
+        guard let made = AVAudioConverter(from: source, to: target) else { return nil }
+        cached = made
+        cachedFormat = source
+        return made
+    }
+}
 
 class AudioRecorder {
     static let shared = AudioRecorder()
@@ -124,21 +143,9 @@ class AudioRecorder {
         // Reuse the warm engine — see `warmEngine()` for why this matters.
         let engine = warmEngine()
         let inputNode = engine.inputNode
-        // Re-read rather than caching: the format follows the current input
-        // device, which may have changed since the engine was warmed.
-        let inputFormat = inputNode.outputFormat(forBus: 0)
-
-        guard inputFormat.channelCount > 0, inputFormat.sampleRate > 0 else {
-            throw RecordingError.setupFailed
-        }
 
         // Target format: 16kHz mono Float32 (WhisperKit's native format)
         guard let targetFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16000, channels: 1, interleaved: false) else {
-            throw RecordingError.setupFailed
-        }
-
-        // Create converter from input format to 16kHz mono
-        guard let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
             throw RecordingError.setupFailed
         }
 
@@ -150,11 +157,26 @@ class AudioRecorder {
         // shared across recordings now, and installing twice traps.
         inputNode.removeTap(onBus: 0)
         let bufferSize: AVAudioFrameCount = 1024
+
+        // The converter is built from the first buffer's own format rather than
+        // from a format read in advance. Reading it up front and handing it to
+        // installTap is what crashed the app: if the input device changed in
+        // between — headphones, the iPhone mic, the system rebuilding the audio
+        // graph — AVAudioEngine fails an internal assertion and raises an
+        // Objective-C exception, which Swift cannot catch, so the process
+        // aborted with no error at all. Deriving it per buffer also lets a
+        // recording survive a device change midway through.
+        let converterBox = ConverterBox()
         let tapBlock: AVAudioNodeTapBlock = { [weak self] buffer, _ in
             guard let self = self else { return }
 
+            let sourceFormat = buffer.format
+            guard sourceFormat.sampleRate > 0, sourceFormat.channelCount > 0 else { return }
+
+            guard let converter = converterBox.converter(from: sourceFormat, to: targetFormat) else { return }
+
             // Convert to 16kHz mono
-            let frameCapacity = AVAudioFrameCount(Double(buffer.frameLength) * 16000.0 / inputFormat.sampleRate)
+            let frameCapacity = AVAudioFrameCount(Double(buffer.frameLength) * 16000.0 / sourceFormat.sampleRate)
             guard frameCapacity > 0, let convertedBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: frameCapacity) else {
                 return
             }
@@ -221,23 +243,41 @@ class AudioRecorder {
             }
         }
 
-        inputNode.installTap(onBus: 0, bufferSize: bufferSize, format: inputFormat, block: tapBlock)
+        // format: nil tells the engine to use the node's own current format,
+        // which removes the mismatch that made this call raise. The guard
+        // catches anything AVFAudio still throws so it surfaces as an error
+        // instead of aborting the process.
+        var installFailed = ObjCExceptionCatcher.try {
+            inputNode.installTap(onBus: 0, bufferSize: bufferSize, format: nil, block: tapBlock)
+        }
 
-        if !engine.isRunning {
+        if installFailed == nil, !engine.isRunning {
             do {
                 try engine.start()
             } catch {
-                // A stale graph (device yanked, HAL hiccup) can leave the
-                // engine unstartable. Rebuild once — this costs the ~940 ms
-                // warm-up, but only in the rare failure case.
-                audioEngine = nil
-                let fresh = warmEngine()
-                let node = fresh.inputNode
-                node.removeTap(onBus: 0)
-                node.installTap(onBus: 0, bufferSize: bufferSize,
-                                format: node.outputFormat(forBus: 0), block: tapBlock)
-                try fresh.start()
+                installFailed = error as NSError
             }
+        }
+
+        guard installFailed == nil else {
+            // A stale graph (device yanked, HAL hiccup, format churn) can leave
+            // the engine unusable. Rebuild once — this costs the ~940 ms
+            // warm-up, but only in the rare failure case.
+            print("Audio setup failed, rebuilding engine: \(installFailed!.localizedDescription)")
+            audioEngine?.stop()
+            audioEngine = nil
+            let fresh = warmEngine()
+            let node = fresh.inputNode
+
+            if let retryError = ObjCExceptionCatcher.try({
+                node.removeTap(onBus: 0)
+                node.installTap(onBus: 0, bufferSize: bufferSize, format: nil, block: tapBlock)
+            }) {
+                print("Audio setup failed again: \(retryError.localizedDescription)")
+                throw RecordingError.setupFailed
+            }
+            try fresh.start()
+            return
         }
     }
 

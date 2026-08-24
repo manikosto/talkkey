@@ -14,9 +14,16 @@ let package = Package(
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.5.0")
     ],
     targets: [
+        // Objective-C shim: AVFoundation raises NSExceptions that Swift cannot
+        // catch, which turned recoverable audio failures into silent aborts.
+        .target(
+            name: "ObjCExceptionCatcher",
+            path: "Sources/ObjCExceptionCatcher"
+        ),
         .executableTarget(
             name: "PressToTalk",
             dependencies: [
+                "ObjCExceptionCatcher",
                 .product(name: "WhisperKit", package: "WhisperKit"),
                 .product(name: "Sparkle", package: "Sparkle")
             ],

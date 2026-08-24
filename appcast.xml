@@ -8,6 +8,27 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.25</title>
+      <sparkle:version>2.25</sparkle:version>
+      <sparkle:shortVersionString>2.25</sparkle:shortVersionString>
+      <pubDate>Mon, 24 Aug 2026 18:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.25</h2>
+        <ul>
+          <li><b>Fixed the app quitting without warning when you started a recording.</b> If your audio setup changed — headphones plugged in, a different microphone selected, your iPhone appearing as an input — TalkKey could terminate silently instead of recording</li>
+          <li>Recordings now survive a microphone change midway through</li>
+          <li>Audio failures that used to end the app now show an error you can act on</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.25/TalkKey.zip"
+          sparkle:edSignature="iT3Jsb/VDOrbFeD0M/Dgupn0kPcGyA17kLsb8YKysvLGNSNnGkIaJhZ3HkPWlkZGiLDdsUUYRyahLF7FkiTFDQ=="
+          length="4450865"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.24</title>
       <sparkle:version>2.24</sparkle:version>
       <sparkle:shortVersionString>2.24</sparkle:shortVersionString>
