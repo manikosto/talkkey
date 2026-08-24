@@ -67,6 +67,39 @@ class SettingsManager: ObservableObject {
 
     @Published var availableMicrophones: [AudioDevice] = []
 
+    // MARK: - Per-mode speech models
+
+    /// Which mode the current recording belongs to, so transcription can pick
+    /// that mode's model. Set when recording starts.
+    var activeTranscriptionMode: CurrentRecordingMode = .directPaste
+
+    /// Model pinned to a mode, or nil to use the main model. Stored per mode
+    /// because the right trade-off differs: direct paste wants speed, review
+    /// can afford accuracy, and translation needs a model trained for it.
+    @Published var modelPerMode: [String: String] = [:] {
+        didSet { UserDefaults.standard.set(modelPerMode, forKey: modelPerModeKey) }
+    }
+
+    private let modelPerModeKey = "modelPerMode"
+
+    private func modeKey(_ mode: CurrentRecordingMode) -> String {
+        switch mode {
+        case .directPaste: return "directPaste"
+        case .review: return "review"
+        case .translation: return "translation"
+        }
+    }
+
+    func modelOverride(for mode: CurrentRecordingMode) -> String? {
+        modelPerMode[modeKey(mode)]
+    }
+
+    func setModelOverride(_ model: String?, for mode: CurrentRecordingMode) {
+        var copy = modelPerMode
+        if let model { copy[modeKey(mode)] = model } else { copy.removeValue(forKey: modeKey(mode)) }
+        modelPerMode = copy
+    }
+
     init() {
         // One-time migration: switch existing users to auto-detect
         if !UserDefaults.standard.bool(forKey: "didMigrateToAutoDetect") {
@@ -107,6 +140,8 @@ class SettingsManager: ObservableObject {
 
         let translationHotkeyRaw = UserDefaults.standard.string(forKey: translationHotkeyKey) ?? "slash"
         self.translationHotkey = TranslationHotkey(rawValue: translationHotkeyRaw) ?? .slash
+
+        self.modelPerMode = UserDefaults.standard.dictionary(forKey: modelPerModeKey) as? [String: String] ?? [:]
 
         refreshMicrophones()
     }

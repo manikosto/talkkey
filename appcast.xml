@@ -8,6 +8,29 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.24</title>
+      <sparkle:version>2.24</sparkle:version>
+      <sparkle:shortVersionString>2.24</sparkle:shortVersionString>
+      <pubDate>Mon, 24 Aug 2026 12:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.24</h2>
+        <ul>
+          <li><b>Turbo model added</b> — Whisper large-v3-turbo at 626 MB. Much better with Russian and other inflected languages than Balanced, and smaller than Accurate. If dictation has been mangling names and technical terms, switch to this</li>
+          <li><b>A model for every mode</b> — pin a different speech model to Direct Paste, Review and Translate. Fast for quick pasting, accurate where it matters</li>
+          <li>Recently used models stay in memory, so switching between modes doesn't wait for a reload</li>
+          <li>Translate automatically avoids the Turbo models, which were never trained to translate</li>
+          <li>Model names now say what they actually are — "Turbo" no longer refers to the smallest, roughest model</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.24/TalkKey.zip"
+          sparkle:edSignature="vgL93Wx5G/XDYYmcgq763nygv+NnGOfqkOlY2H0ZIYf0A8iWYEr/wLefR4DoBTY86b7zn/WYgA7W2IB4d3JfDA=="
+          length="4445745"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.23</title>
       <sparkle:version>2.23</sparkle:version>
       <sparkle:shortVersionString>2.23</sparkle:shortVersionString>

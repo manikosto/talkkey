@@ -239,6 +239,9 @@ class HotkeyManager {
                     AppState.shared.currentRecordingMode = .translation
                 }
 
+                // Transcription picks the model pinned to this mode.
+                SettingsManager.shared.activeTranscriptionMode = AppState.shared.currentRecordingMode
+
                 AppState.shared.recordingStartedAt = Date()
                 AppState.shared.isRecording = true
                 ControlBarController.shared.beginRecordingPresentation()

@@ -33,23 +33,50 @@ class LocalTranscriptionService: ObservableObject {
 
     private var whisperKit: WhisperKit?
 
-    // Available models (sorted by size/quality)
+    /// Recently used models kept in memory so switching between per-mode
+    /// models doesn't pay a multi-second reload on every recording.
+    private var modelCache: [String: WhisperKit] = [:]
+    private var cacheOrder: [String] = []
+    /// large-v3 alone is well over a gigabyte resident; two is the most worth
+    /// holding on a typical machine.
+    private let maxCachedModels = 2
+
+    // Available models (ordered by size)
     let availableModels = [
-        "tiny",      // ~39MB, fastest
-        "base",      // ~74MB, fast
-        "small",     // ~244MB, good balance
-        "medium",    // ~769MB, high quality
-        "large-v3"   // ~1.5GB, best quality
+        "tiny",                          // ~39 MB
+        "base",                          // ~74 MB
+        "small",                         // ~244 MB
+        "large-v3-v20240930_626MB",      // ~626 MB — large-v3-turbo, quantized
+        "medium",                        // ~769 MB
+        "large-v3-v20240930",            // ~1.6 GB — large-v3-turbo, full
+        "large-v3"                       // ~1.5 GB — best quality, slowest
     ]
+
+    /// Turbo is distilled for transcription only — it was never trained on the
+    /// translate task, so it must not be used for speech translation.
+    static let transcribeOnlyModels: Set<String> = [
+        "large-v3-v20240930_626MB",
+        "large-v3-v20240930"
+    ]
+
+    func supportsTranslation(_ model: String) -> Bool {
+        !Self.transcribeOnlyModels.contains(model)
+    }
+
+    /// The model recommended for most people: near large-v3 accuracy at a
+    /// fraction of the size and time.
+    static let recommendedModel = "large-v3-v20240930_626MB"
 
     // User-friendly model names
     var modelDisplayName: [String: String] {
         [
-            "tiny": "Turbo",
+            "tiny": "Tiny",
             "base": "Fast",
             "small": "Balanced",
+            "large-v3-v20240930_626MB": "Turbo",
             "medium": "Accurate",
-            "large-v3": "Most Accurate"
+            "large-v3-v20240930": "Turbo HQ",
+            "large-v3": "Maximum"
         ]
     }
 
@@ -114,14 +141,9 @@ class LocalTranscriptionService: ObservableObject {
         downloadProgress = 0
 
         do {
-            let config = WhisperKitConfig(
-                model: modelToLoad,
-                downloadBase: modelDirectory,
-                verbose: false,
-                prewarm: true
-            )
+            let engine = try await engine(for: modelToLoad)
 
-            whisperKit = try await WhisperKit(config)
+            whisperKit = engine
             isModelLoaded = true
             selectedModel = modelToLoad
             UserDefaults.standard.set(modelToLoad, forKey: "selectedWhisperModel")
@@ -136,6 +158,63 @@ class LocalTranscriptionService: ObservableObject {
         }
     }
 
+    /// Returns a ready engine for `model`, reusing a cached one when possible.
+    private func engine(for model: String) async throws -> WhisperKit {
+        if let cached = modelCache[model] {
+            touchCache(model)
+            return cached
+        }
+
+        let config = WhisperKitConfig(
+            model: model,
+            downloadBase: modelDirectory,
+            verbose: false,
+            prewarm: true
+        )
+        let engine = try await WhisperKit(config)
+
+        modelCache[model] = engine
+        touchCache(model)
+        evictIfNeeded()
+        return engine
+    }
+
+    private func touchCache(_ model: String) {
+        cacheOrder.removeAll { $0 == model }
+        cacheOrder.append(model)
+    }
+
+    private func evictIfNeeded() {
+        while cacheOrder.count > maxCachedModels {
+            let victim = cacheOrder.removeFirst()
+            // Never evict the engine that is currently in use.
+            if victim == selectedModel { cacheOrder.append(victim); break }
+            modelCache[victim] = nil
+        }
+    }
+
+    /// Resolves and loads the model a given mode should use, falling back to
+    /// the main model when the mode has no override or its model isn't
+    /// installed. Returns the engine to transcribe with.
+    private func engineForCurrentMode(translating: Bool) async throws -> WhisperKit {
+        let settings = SettingsManager.shared
+        var wanted = settings.modelOverride(for: settings.activeTranscriptionMode) ?? selectedModel
+
+        // Turbo can't translate; silently fall back rather than emit garbage.
+        if translating && !supportsTranslation(wanted) {
+            wanted = availableModels.first { isModelDownloaded($0) && supportsTranslation($0) } ?? wanted
+        }
+
+        guard isModelDownloaded(wanted) else {
+            // Override points at something not installed — use what we have.
+            guard let engine = whisperKit else { throw LocalTranscriptionError.modelNotLoaded }
+            return engine
+        }
+
+        if wanted == selectedModel, let engine = whisperKit { return engine }
+        return try await engine(for: wanted)
+    }
+
     func downloadModel(_ model: String) async throws {
         try await loadModel(model)
     }
@@ -146,18 +225,16 @@ class LocalTranscriptionService: ObservableObject {
     }
 
     func transcribe(audioURL: URL, translateToEnglish: Bool = false) async throws -> TranscribeResult {
-        guard let whisperKit = whisperKit, isModelLoaded else {
-            if !hasAnyModel {
-                throw LocalTranscriptionError.noModelInstalled
-            }
+        guard hasAnyModel else { throw LocalTranscriptionError.noModelInstalled }
+
+        if whisperKit == nil || !isModelLoaded {
             try await loadModel()
-            guard let wk = self.whisperKit else {
-                throw LocalTranscriptionError.modelNotLoaded
-            }
-            return try await transcribeWith(wk, audioURL: audioURL, translateToEnglish: translateToEnglish)
         }
 
-        return try await transcribeWith(whisperKit, audioURL: audioURL, translateToEnglish: translateToEnglish)
+        // Each mode may pin its own model; this resolves and loads it, reusing
+        // a cached engine when the mode was used recently.
+        let engine = try await engineForCurrentMode(translating: translateToEnglish)
+        return try await transcribeWith(engine, audioURL: audioURL, translateToEnglish: translateToEnglish)
     }
 
     private func transcribeWith(_ whisperKit: WhisperKit, audioURL: URL, translateToEnglish: Bool = false) async throws -> TranscribeResult {
@@ -351,18 +428,22 @@ class LocalTranscriptionService: ObservableObject {
             "tiny": "39 MB",
             "base": "74 MB",
             "small": "244 MB",
+            "large-v3-v20240930_626MB": "626 MB",
             "medium": "769 MB",
+            "large-v3-v20240930": "1.6 GB",
             "large-v3": "1.5 GB"
         ]
     }
 
     var modelQualityDescription: [String: String] {
         [
-            "tiny": "Fastest, basic quality",
-            "base": "Fast, good quality",
-            "small": "Great balance of speed and quality",
-            "medium": "More accurate, slower",
-            "large-v3": "Best accuracy, slowest"
+            "tiny": "Fastest, rough quality",
+            "base": "Fast, basic quality",
+            "small": "Weak on Russian and other inflected languages",
+            "large-v3-v20240930_626MB": "Near-best accuracy, fast — transcription only",
+            "medium": "Good accuracy, slower",
+            "large-v3-v20240930": "Near-best accuracy — transcription only",
+            "large-v3": "Best accuracy, handles translation, slowest"
         ]
     }
 }

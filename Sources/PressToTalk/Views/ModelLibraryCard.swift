@@ -81,6 +81,13 @@ struct ModelLibraryCard: View {
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
                             .background(Capsule().fill(Theme.accentGreen))
+                    } else if model == LocalTranscriptionService.recommendedModel {
+                        Text("RECOMMENDED")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Theme.accentOrange))
                     }
                 }
 

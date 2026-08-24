@@ -1481,6 +1481,7 @@ struct TranscriptionModeSelector: View {
             // Mode-specific content
             if transcriptionMode == .offline {
                 ModelLibraryCard(localTranscription: localTranscription)
+                ModePerModelCard(settings: settings, localTranscription: localTranscription)
             } else {
                 // Cloud mode: API Key
                 SettingsCard {
