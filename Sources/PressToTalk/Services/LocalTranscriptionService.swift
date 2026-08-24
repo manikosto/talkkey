@@ -240,12 +240,12 @@ class LocalTranscriptionService: ObservableObject {
     private func transcribeWith(_ whisperKit: WhisperKit, audioURL: URL, translateToEnglish: Bool = false) async throws -> TranscribeResult {
         let settings = SettingsManager.shared
 
-        if !translateToEnglish && settings.selectedLanguage == .auto {
+        if !translateToEnglish && settings.effectiveLanguage == .auto {
             return try await transcribeAutoDetect(whisperKit, audioURL: audioURL)
         }
 
         let task: DecodingTask = translateToEnglish ? .translate : .transcribe
-        let languageCode: String? = translateToEnglish ? nil : settings.selectedLanguage.rawValue
+        let languageCode: String? = translateToEnglish ? nil : settings.effectiveLanguage.rawValue
 
         let options = DecodingOptions(
             task: task,
@@ -347,7 +347,7 @@ class LocalTranscriptionService: ObservableObject {
         }
 
         let settings = SettingsManager.shared
-        let language = settings.selectedLanguage
+        let language = settings.effectiveLanguage
         let languageCode: String? = language == .auto ? nil : language.rawValue
 
         let options = DecodingOptions(

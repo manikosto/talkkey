@@ -100,6 +100,36 @@ class SettingsManager: ObservableObject {
         modelPerMode = copy
     }
 
+    // MARK: - Per-mode language
+
+    /// Language pinned to a mode, or nil to use the main language.
+    ///
+    /// Worth having on its own: naming the language is more reliable than
+    /// auto-detect, which can misread short or accented speech and — because
+    /// Whisper then "transcribes" into the language it guessed — silently
+    /// translate instead of transcribing.
+    @Published var languagePerMode: [String: String] = [:] {
+        didSet { UserDefaults.standard.set(languagePerMode, forKey: languagePerModeKey) }
+    }
+
+    private let languagePerModeKey = "languagePerMode"
+
+    func languageOverride(for mode: CurrentRecordingMode) -> WhisperLanguage? {
+        guard let raw = languagePerMode[modeKey(mode)] else { return nil }
+        return WhisperLanguage(rawValue: raw)
+    }
+
+    func setLanguageOverride(_ language: WhisperLanguage?, for mode: CurrentRecordingMode) {
+        var copy = languagePerMode
+        if let language { copy[modeKey(mode)] = language.rawValue } else { copy.removeValue(forKey: modeKey(mode)) }
+        languagePerMode = copy
+    }
+
+    /// The language transcription should actually use right now.
+    var effectiveLanguage: WhisperLanguage {
+        languageOverride(for: activeTranscriptionMode) ?? selectedLanguage
+    }
+
     init() {
         // One-time migration: switch existing users to auto-detect
         if !UserDefaults.standard.bool(forKey: "didMigrateToAutoDetect") {
@@ -142,6 +172,7 @@ class SettingsManager: ObservableObject {
         self.translationHotkey = TranslationHotkey(rawValue: translationHotkeyRaw) ?? .slash
 
         self.modelPerMode = UserDefaults.standard.dictionary(forKey: modelPerModeKey) as? [String: String] ?? [:]
+        self.languagePerMode = UserDefaults.standard.dictionary(forKey: languagePerModeKey) as? [String: String] ?? [:]
 
         refreshMicrophones()
     }

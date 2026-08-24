@@ -8,6 +8,27 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.26</title>
+      <sparkle:version>2.26</sparkle:version>
+      <sparkle:shortVersionString>2.26</sparkle:shortVersionString>
+      <pubDate>Mon, 24 Aug 2026 21:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.26</h2>
+        <ul>
+          <li><b>A language for every mode</b> — pin a specific language to each hotkey, or leave it on auto-detect. Dictate in Russian on one key and English on another without touching settings</li>
+          <li>Naming the language also prevents the occasional wrong-language slip, where an unsure auto-detect makes Whisper translate your speech instead of writing it down</li>
+          <li>Model and language now sit side by side in one per-mode table, so you can tune each key for exactly what you use it for</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.26/TalkKey.zip"
+          sparkle:edSignature="1v1bpD7u+od/mWfqTzBM396LedVrqRC8GUs1C+xaLV2/8Rj9ikwxiO4LNJa0FM3hY3Xxn6bqBHYGBeqHGkBXDA=="
+          length="4464136"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.25</title>
       <sparkle:version>2.25</sparkle:version>
       <sparkle:shortVersionString>2.25</sparkle:shortVersionString>

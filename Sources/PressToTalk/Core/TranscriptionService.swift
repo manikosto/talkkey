@@ -113,7 +113,7 @@ class TranscriptionService {
         body.append("whisper-1\r\n")
 
         // Add language field (if not auto-detect)
-        let language = SettingsManager.shared.selectedLanguage
+        let language = await SettingsManager.shared.effectiveLanguage
         if language != .auto {
             body.append("--\(boundary)\r\n")
             body.append("Content-Disposition: form-data; name=\"language\"\r\n\r\n")
