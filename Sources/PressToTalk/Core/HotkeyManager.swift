@@ -269,6 +269,17 @@ class HotkeyManager {
             UsageTracker.shared.stopRecording()
 
             guard let audioURL = audioRecorder.stopRecording() else {
+                // Nothing was captured. Say so plainly instead of letting an
+                // empty file reach the model, which used to surface as a raw
+                // CoreAudio assertion.
+                ResultToastController.shared.show(
+                    kind: .warning,
+                    title: "Nothing was recorded",
+                    detail: "No audio reached TalkKey. Check the microphone in Settings, then try again."
+                        + (audioRecorder.lastFailureDetail.map { "\n(\($0))" } ?? ""),
+                    duration: 9
+                )
+                ControlBarController.shared.endRecordingPresentation()
                 return
             }
 

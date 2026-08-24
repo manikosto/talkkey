@@ -63,7 +63,7 @@ cat > build/$APP_NAME.app/Contents/Info.plist << EOF
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>LSMinimumSystemVersion</key>
-    <string>13.0</string>
+    <string>14.0</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>$APP_NAME needs microphone access to record your voice for transcription.</string>
     <key>LSUIElement</key>

@@ -21,6 +21,29 @@ private final class ConverterBox {
     }
 }
 
+/// Owns the recording file and releases it deterministically.
+///
+/// AVAudioFile finalises the WAV header — including the frame count — when it
+/// deallocates. The tap block used to capture the file directly, so stopping a
+/// recording left a second strong reference alive and the file could still
+/// report zero frames when transcription opened it.
+private final class AudioFileBox {
+    private let lock = NSLock()
+    private var file: AVAudioFile?
+
+    init(_ file: AVAudioFile) { self.file = file }
+
+    func write(_ buffer: AVAudioPCMBuffer) throws {
+        lock.lock(); defer { lock.unlock() }
+        try file?.write(from: buffer)
+    }
+
+    /// Drops the file so its header is written before anyone reads it.
+    func close() {
+        lock.lock(); file = nil; lock.unlock()
+    }
+}
+
 class AudioRecorder {
     static let shared = AudioRecorder()
 
@@ -32,13 +55,17 @@ class AudioRecorder {
     /// once per engine, not once per recording. Keeping the instance alive
     /// and only starting/stopping it brings press-to-first-audio to ~170 ms.
     private var audioEngine: AVAudioEngine?
-    private var audioFile: AVAudioFile?
+    private var audioFileBox: AudioFileBox?
     private var recordingURL: URL?
     private var previousDefaultDevice: AudioDeviceID?
     private var peakLevel: Float = -160.0
     private var averageLevelSum: Float = 0
     private var levelSampleCount: Int = 0
     private var lastLevelUpdateTime: CFTimeInterval = 0
+    // Counted so a failed recording can explain itself in the error shown.
+    private var writeOK = 0
+    private var writeFail = 0
+    private var firstWriteError: String?
 
     // Live PCM buffer for streaming transcription (16kHz mono Float32)
     private let samplesLock = NSLock()
@@ -112,6 +139,7 @@ class AudioRecorder {
             throw RecordingError.noMicrophonePermission
         }
 
+        writeOK = 0; writeFail = 0; firstWriteError = nil
         // Reset level tracking
         peakLevel = -160.0
         averageLevelSum = 0
@@ -150,8 +178,8 @@ class AudioRecorder {
         }
 
         // Create audio file for final transcription (16kHz mono WAV)
-        let audioFile = try AVAudioFile(forWriting: recordingURL, settings: targetFormat.settings)
-        self.audioFile = audioFile
+        let audioFileBox = AudioFileBox(try AVAudioFile(forWriting: recordingURL, settings: targetFormat.settings))
+        self.audioFileBox = audioFileBox
 
         // Install tap on input node. Remove any stale tap first — the node is
         // shared across recordings now, and installing twice traps.
@@ -197,9 +225,11 @@ class AudioRecorder {
 
             // Write to file
             do {
-                try audioFile.write(from: convertedBuffer)
+                try audioFileBox.write(convertedBuffer)
+                self.writeOK += 1
             } catch {
-                print("Error writing audio file: \(error)")
+                self.writeFail += 1
+                if self.firstWriteError == nil { self.firstWriteError = "\(error)" }
             }
 
             // Extract Float32 samples
@@ -286,7 +316,8 @@ class AudioRecorder {
         // releases the microphone, so the recording indicator still clears.
         audioEngine?.inputNode.removeTap(onBus: 0)
         audioEngine?.stop()
-        audioFile = nil
+        audioFileBox?.close()
+        audioFileBox = nil
 
         // Clear samples buffer
         samplesLock.lock()
@@ -301,13 +332,35 @@ class AudioRecorder {
 
         AudioLevelStore.shared.reset()
 
-        return recordingURL
+        // Hand back this session's file and forget it, so a recording started
+        // immediately afterwards can't have its fresh, still-empty file
+        // returned to the take that just ended.
+        let url = recordingURL
+        recordingURL = nil
+
+        // Only return a file that actually has audio in it. WhisperKit asserts
+        // on an empty one ("buffer.frameCapacity != 0"), which surfaced to
+        // users as a raw CoreAudio error; a nil here becomes a plain message.
+        guard let url, let frames = try? AVAudioFile(forReading: url).length, frames > 0 else {
+            lastFailureDetail = "writes: \(writeOK) ok / \(writeFail) failed"
+                + (firstWriteError.map { "; first error: \($0)" } ?? "")
+            if let url { try? FileManager.default.removeItem(at: url) }
+            return nil
+        }
+
+        lastFailureDetail = nil
+        return url
     }
+
+    /// Why the last recording produced nothing usable, for the error shown to
+    /// the user and for diagnosing reports.
+    private(set) var lastFailureDetail: String?
 
     func cancelRecording() {
         audioEngine?.inputNode.removeTap(onBus: 0)
         audioEngine?.stop()
-        audioFile = nil
+        audioFileBox?.close()
+        audioFileBox = nil
 
         // Restore previous default input device
         if let previousDevice = previousDefaultDevice {

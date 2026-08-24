@@ -8,6 +8,29 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.27</title>
+      <sparkle:version>2.27</sparkle:version>
+      <sparkle:shortVersionString>2.27</sparkle:shortVersionString>
+      <pubDate>Sun, 24 Aug 2026 23:00:00 +0000</pubDate>
+      <!-- From 2.27 the app is built for macOS 14; older entries stay at 13.0
+           so anyone still on Ventura keeps their last compatible update. -->
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.27</h2>
+        <ul>
+          <li><b>Fixed "Transcription failed" after dictating.</b> A recording could be handed to the speech model before its file was finished being written, which surfaced as a raw CoreAudio error</li>
+          <li>If nothing was captured at all, you now get a plain explanation instead of a technical failure</li>
+          <li>Requires macOS 14 Sonoma, which is what the app was already built for — earlier releases stated 13.0 by mistake</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.27/TalkKey.zip"
+          sparkle:edSignature="I0fDLeoJyPtVx0nADQ5CariiCUudEh1ii0bepZD2dxsUhnXoIm/DFAm8BINPfAH8Rf8UmmkIen/daSsxfsZ8Dg=="
+          length="4465588"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.26</title>
       <sparkle:version>2.26</sparkle:version>
       <sparkle:shortVersionString>2.26</sparkle:shortVersionString>
