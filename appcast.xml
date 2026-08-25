@@ -8,6 +8,27 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.28</title>
+      <sparkle:version>2.28</sparkle:version>
+      <sparkle:shortVersionString>2.28</sparkle:shortVersionString>
+      <pubDate>Mon, 25 Aug 2026 10:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.28</h2>
+        <ul>
+          <li><b>Fixed dictation being discarded.</b> A safety check added in 2.27 could throw away a perfectly good recording whenever it failed to inspect the file, so TalkKey appeared not to hear you. It now only discards a take it can positively confirm is empty</li>
+          <li><b>Quiet speech and natural pauses no longer count as silence.</b> The old check averaged the level across the whole recording, so holding the key, thinking, then speaking briefly could be rejected outright — measured at -57 dB average while speech was plainly audible</li>
+          <li>If a recording really is rejected, the message now shows the measured levels so you can see why</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.28/TalkKey.zip"
+          sparkle:edSignature="jpuyGNehU5xGOk4X73yFT7odMKd6E7BIEqpu534A5feMCW6mFO6f9BPO+E3TY6giKoNpsVIaMed4zBsav1mwCg=="
+          length="4466006"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.27</title>
       <sparkle:version>2.27</sparkle:version>
       <sparkle:shortVersionString>2.27</sparkle:shortVersionString>

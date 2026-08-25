@@ -78,11 +78,13 @@ class AudioRecorder {
         return copy
     }
 
-    // Minimum average level (in dB) to consider as actual speech
-    // Below this, we assume it's silence/noise and skip transcription.
-    // Kept permissive: a rejected recording is far worse than a wasted
-    // transcription pass, and rejections are now surfaced via toast.
-    private let minimumSpeechLevel: Float = -50.0
+    /// Level a buffer must reach to count as speech rather than room noise.
+    private let speechLevel: Float = -45.0
+    /// Below this peak, the take contained essentially nothing at all.
+    private let silenceLevel: Float = -50.0
+    /// How many buffers reached `speechLevel` — the signal that someone spoke,
+    /// regardless of how much silence surrounded it.
+    private var loudSampleCount = 0
 
     var isRecording: Bool {
         audioEngine?.isRunning ?? false
@@ -126,10 +128,27 @@ class AudioRecorder {
         samplesLock.unlock()
     }
 
+    /// Whether the take is worth transcribing at all.
+    ///
+    /// This used to average the level across the whole recording, which
+    /// punished the way people actually dictate: hold the key, think, speak a
+    /// few words, release. The pauses dragged the average below the threshold
+    /// and real speech was thrown away — measured at -57.5 dB average against
+    /// a -50 dB bar while speech was plainly audible.
+    ///
+    /// It now asks the only question that matters — did anything speech-like
+    /// happen at any point — and errs heavily toward yes. Transcribing a quiet
+    /// take costs a second; discarding what someone said costs their words,
+    /// and an empty transcript is already handled downstream.
     var hasSufficientAudio: Bool {
         guard levelSampleCount > 0 else { return false }
-        let avgLevel = averageLevelSum / Float(levelSampleCount)
-        return avgLevel > minimumSpeechLevel || peakLevel > -40.0
+        return peakLevel > silenceLevel || loudSampleCount >= 2
+    }
+
+    /// Measured levels for the message shown when a take is rejected.
+    var levelSummary: String {
+        let avg = levelSampleCount > 0 ? averageLevelSum / Float(levelSampleCount) : -160
+        return String(format: "peak %.0f dB, average %.0f dB", peakLevel, avg)
     }
 
     func startRecording() async throws {
@@ -140,6 +159,7 @@ class AudioRecorder {
         }
 
         writeOK = 0; writeFail = 0; firstWriteError = nil
+        loudSampleCount = 0
         // Reset level tracking
         peakLevel = -160.0
         averageLevelSum = 0
@@ -262,6 +282,9 @@ class AudioRecorder {
             if peakDB > self.peakLevel {
                 self.peakLevel = peakDB
             }
+            if rmsDB > self.speechLevel {
+                self.loudSampleCount += 1
+            }
 
             // Convert dB to 0-1 range for the overlay waveform. Written straight
             // to the lock-protected store — no main-thread hop, no SwiftUI publish.
@@ -338,13 +361,20 @@ class AudioRecorder {
         let url = recordingURL
         recordingURL = nil
 
-        // Only return a file that actually has audio in it. WhisperKit asserts
-        // on an empty one ("buffer.frameCapacity != 0"), which surfaced to
-        // users as a raw CoreAudio error; a nil here becomes a plain message.
-        guard let url, let frames = try? AVAudioFile(forReading: url).length, frames > 0 else {
+        guard let url else {
+            lastFailureDetail = "no recording file was created"
+            return nil
+        }
+
+        // Reject only when the file is *known* to be empty, which is what makes
+        // WhisperKit assert ("buffer.frameCapacity != 0"). If the check itself
+        // can't read the file, hand it over anyway: a verification step must
+        // never be able to discard a perfectly good recording, which is exactly
+        // what a stricter version of this guard did in 2.27.
+        if let frames = try? AVAudioFile(forReading: url).length, frames == 0 {
             lastFailureDetail = "writes: \(writeOK) ok / \(writeFail) failed"
                 + (firstWriteError.map { "; first error: \($0)" } ?? "")
-            if let url { try? FileManager.default.removeItem(at: url) }
+            try? FileManager.default.removeItem(at: url)
             return nil
         }
 

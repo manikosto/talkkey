@@ -261,6 +261,7 @@ class HotkeyManager {
 
             // Check if there's sufficient audio before stopping
             let hasSufficientAudio = audioRecorder.hasSufficientAudio
+            let levelSummary = audioRecorder.levelSummary
 
             AppState.shared.isRecording = false
             AppState.shared.recordingStartedAt = nil
@@ -283,13 +284,14 @@ class HotkeyManager {
                 return
             }
 
-            // Skip transcription if audio level was too low (silence/noise)
+            // Skip transcription only when the take held essentially nothing.
             guard hasSufficientAudio else {
                 try? FileManager.default.removeItem(at: audioURL)
                 ResultToastController.shared.show(
                     kind: .warning,
-                    title: "No speech detected",
-                    detail: "The recording was too quiet. Speak louder or check the selected microphone in Settings."
+                    title: "No sound reached the microphone",
+                    detail: "Measured \(levelSummary). Check the input in Settings — you can watch the level with Test Microphone.",
+                    duration: 9
                 )
                 return
             }
