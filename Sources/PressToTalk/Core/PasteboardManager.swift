@@ -19,32 +19,104 @@ class PasteboardManager {
         targetAppBundleId = frontmost
     }
 
-    // Regular paste — types the text into the target app via CGEvent.
-    // The transcript is ALWAYS put in the clipboard first as a safety net:
-    // synthetic typing can fail silently (revoked Accessibility, focus lost),
-    // and the user must never lose what they said.
-    // Returns false when typing could not even be attempted.
+    /// What happened to a transcript.
+    enum PasteOutcome {
+        /// Typed into the focused field; the clipboard was left alone.
+        case typed
+        /// Nowhere to type it, so it was put on the clipboard instead.
+        case copiedNoTextField
+        /// Accessibility isn't granted, so typing is impossible.
+        case copiedNoAccessibility
+    }
+
+    /// Types the transcript into whatever the user was working in.
+    ///
+    /// The clipboard is deliberately *not* touched on the normal path: people
+    /// keep things there, and clobbering it on every dictation is its own kind
+    /// of data loss. It is used only as a fallback when there is nowhere to
+    /// type — and nothing is ever lost regardless, because every transcript is
+    /// kept in History and offered by the result card.
     @discardableResult
-    func pasteText(_ text: String) -> Bool {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
+    func pasteText(_ text: String) -> PasteOutcome {
+        // Without Accessibility trust CGEvent posting goes nowhere.
+        guard AXIsProcessTrusted() else {
+            copyToClipboard(text)
+            return .copiedNoAccessibility
+        }
 
-        // Without Accessibility trust CGEvent posting goes nowhere — don't
-        // pretend it worked.
-        guard AXIsProcessTrusted() else { return false }
-
-        // Activate the target app first
+        // Activate the target app first, then let focus settle before asking
+        // where the caret is.
         if let bundleId = targetAppBundleId,
            let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first {
             app.activate(options: .activateIgnoringOtherApps)
         }
 
-        // Wait for app to activate, then type the text directly
+        // Detection decides whether to *also* copy — never whether to type.
+        // Accessibility describes text areas inconsistently across apps, so a
+        // wrong "no" must not stop the transcript reaching the cursor. Typing
+        // into something that turns out not to accept text is harmless; not
+        // typing when it would have worked is the failure that matters.
+        let looksEditable = focusedElementAcceptsText()
+
+        if !looksEditable || SettingsManager.shared.alwaysCopyToClipboard {
+            copyToClipboard(text)
+        }
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             self.typeText(text)
         }
-        return true
+        return looksEditable ? .typed : .copiedNoTextField
+    }
+
+    private func copyToClipboard(_ text: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+    }
+
+    /// Whether the thing with keyboard focus can actually receive typed text.
+    ///
+    /// Deliberately generous: many apps — Electron, web views, custom editors —
+    /// describe their text areas poorly, so anything that looks remotely like a
+    /// text context counts. A false "yes" merely types where the user was
+    /// already working; a false "no" would send them to the clipboard for no
+    /// reason.
+    private func focusedElementAcceptsText() -> Bool {
+        // Focus follows app activation, which was just requested.
+        usleep(120_000)
+
+        let system = AXUIElementCreateSystemWide()
+        var focusedRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(system, kAXFocusedUIElementAttribute as CFString, &focusedRef) == .success,
+              CFGetTypeID(focusedRef) == AXUIElementGetTypeID() else {
+            return false
+        }
+        let element = unsafeBitCast(focusedRef, to: AXUIElement.self)
+
+        var roleRef: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef)
+        if let role = roleRef as? String,
+           [kAXTextFieldRole, kAXTextAreaRole, kAXComboBoxRole, kAXSearchFieldSubrole].contains(role) {
+            return true
+        }
+
+        // A settable value is the clearest sign of an editable control.
+        var settable: DarwinBoolean = false
+        if AXUIElementIsAttributeSettable(element, kAXValueAttribute as CFString, &settable) == .success,
+           settable.boolValue {
+            return true
+        }
+
+        // Web and Electron text areas usually expose a caret or a selection
+        // even when their role says nothing useful.
+        for attribute in [kAXSelectedTextAttribute, kAXSelectedTextRangeAttribute, kAXInsertionPointLineNumberAttribute] {
+            var value: CFTypeRef?
+            if AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success {
+                return true
+            }
+        }
+
+        return false
     }
 
     // Paste via clipboard (for Review window - saves and restores clipboard)

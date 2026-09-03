@@ -8,6 +8,28 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.29</title>
+      <sparkle:version>2.29</sparkle:version>
+      <sparkle:shortVersionString>2.29</sparkle:shortVersionString>
+      <pubDate>Tue, 25 Aug 2026 14:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.29</h2>
+        <ul>
+          <li><b>Your clipboard is left alone.</b> Dictating no longer replaces whatever you had copied — the text goes straight to the cursor and nothing else is touched</li>
+          <li>TalkKey copies only when there is nowhere to type: no text field in focus, or Accessibility access not granted. You get a card offering the text in that case</li>
+          <li>Nothing is ever lost either way — every transcript is still kept in History</li>
+          <li>New setting: <b>Always copy to clipboard</b>, for anyone who preferred the old behaviour</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.29/TalkKey.zip"
+          sparkle:edSignature="1mm/JRS3p+noJAGMFTkjSyaOT9cQrLg1MuDWsy0fIGjLj36B8cCwS5us+xQ67oTt/iVEMgpGsM8mqskhTGhTAA=="
+          length="4471053"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.28</title>
       <sparkle:version>2.28</sparkle:version>
       <sparkle:shortVersionString>2.28</sparkle:shortVersionString>

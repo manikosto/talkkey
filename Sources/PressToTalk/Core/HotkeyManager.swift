@@ -316,15 +316,27 @@ class HotkeyManager {
 
                     switch currentMode {
                     case .directPaste, .translation:
-                        let typed = PasteboardManager.shared.pasteText(text)
+                        let outcome = PasteboardManager.shared.pasteText(text)
                         HistoryManager.shared.add(text)
-                        if !typed {
-                            // Typing was impossible (no Accessibility) — the text
-                            // is already in the clipboard, tell the user.
+
+                        switch outcome {
+                        case .typed:
+                            break   // it went where the user was working
+                        case .copiedNoTextField:
+                            // Typing was still attempted; the clipboard is the
+                            // backstop in case there really was nowhere to type.
                             ResultToastController.shared.show(
                                 kind: .info,
-                                title: "Copied to clipboard — press ⌘V to paste",
+                                title: "Also copied — no text field was detected",
                                 detail: text,
+                                copyText: text,
+                                duration: 8
+                            )
+                        case .copiedNoAccessibility:
+                            ResultToastController.shared.show(
+                                kind: .warning,
+                                title: "Copied to clipboard — press ⌘V to paste",
+                                detail: "TalkKey needs Accessibility access to type for you. Grant it in Settings to have text inserted automatically.",
                                 copyText: text,
                                 duration: 10
                             )

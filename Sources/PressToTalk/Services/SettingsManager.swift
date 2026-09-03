@@ -67,6 +67,15 @@ class SettingsManager: ObservableObject {
 
     @Published var availableMicrophones: [AudioDevice] = []
 
+    /// Put every transcript on the clipboard, even when it was typed straight
+    /// into a field. Off by default — dictating shouldn't quietly replace
+    /// whatever the user had copied.
+    @Published var alwaysCopyToClipboard: Bool {
+        didSet { UserDefaults.standard.set(alwaysCopyToClipboard, forKey: alwaysCopyKey) }
+    }
+
+    private let alwaysCopyKey = "alwaysCopyToClipboard"
+
     // MARK: - Per-mode speech models
 
     /// Which mode the current recording belongs to, so transcription can pick
@@ -171,6 +180,7 @@ class SettingsManager: ObservableObject {
         let translationHotkeyRaw = UserDefaults.standard.string(forKey: translationHotkeyKey) ?? "slash"
         self.translationHotkey = TranslationHotkey(rawValue: translationHotkeyRaw) ?? .slash
 
+        self.alwaysCopyToClipboard = UserDefaults.standard.bool(forKey: alwaysCopyKey)
         self.modelPerMode = UserDefaults.standard.dictionary(forKey: modelPerModeKey) as? [String: String] ?? [:]
         self.languagePerMode = UserDefaults.standard.dictionary(forKey: languagePerModeKey) as? [String: String] ?? [:]
 

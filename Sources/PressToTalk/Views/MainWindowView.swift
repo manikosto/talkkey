@@ -682,6 +682,38 @@ struct SettingsTab: View {
                                 .padding(.leading, 58)
 
                             MicrophoneTestRow()
+
+                            Divider()
+                                .background(Theme.cardBorder)
+                                .padding(.leading, 58)
+
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Theme.accentGreen.opacity(0.16))
+                                        .frame(width: 32, height: 32)
+                                    Image(systemName: "doc.on.clipboard")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(Theme.accentGreen)
+                                }
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Always copy to clipboard")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(Theme.textPrimary)
+                                    Text("Off: your clipboard is left alone, and TalkKey copies only when there is no text field to type into")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(Theme.textTertiary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+
+                                Spacer()
+
+                                Toggle("", isOn: $settings.alwaysCopyToClipboard)
+                                    .toggleStyle(.switch)
+                                    .labelsHidden()
+                            }
+                            .padding(14)
                         }
                     }
                 }
