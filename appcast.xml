@@ -8,6 +8,28 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.30</title>
+      <sparkle:version>2.30</sparkle:version>
+      <sparkle:shortVersionString>2.30</sparkle:shortVersionString>
+      <pubDate>Wed, 09 Sep 2026 10:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.30</h2>
+        <ul>
+          <li><b>One language per key.</b> Hold one key and speak Russian, hold another and speak English — both type straight to your cursor, no settings to change in between</li>
+          <li>Each key is now a free slot: choose what it does (Paste, Review or Translate), in which language, with which model</li>
+          <li>Until now the second key could only open the Review window, so two plain dictation keys weren't possible</li>
+          <li>Your existing per-mode settings move across automatically, and the keys keep doing what they did before unless you change them</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.30/TalkKey.zip"
+          sparkle:edSignature="19lxZoUgyn2Itb9DaYZz4N8u3iabpliDQYO7bEZHW+FW5d8tASDvl3Zx6GwVcJ8hB/fF/6c/gj6YevCrYgHXCQ=="
+          length="4482098"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.29</title>
       <sparkle:version>2.29</sparkle:version>
       <sparkle:shortVersionString>2.29</sparkle:shortVersionString>

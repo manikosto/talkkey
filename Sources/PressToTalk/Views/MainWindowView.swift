@@ -146,10 +146,7 @@ struct HomeTab: View {
                 // How to use
                 VStack(alignment: .leading, spacing: 14) {
                     SectionHeader(title: "How to use", icon: "questionmark.circle.fill")
-                    HowToUseCard(
-                        primaryHotkey: settings.selectedHotkey.displayName,
-                        secondaryHotkey: settings.secondaryHotkey.displayName
-                    )
+                    HowToUseCard(settings: settings)
                 }
 
                 // Test input
@@ -1298,123 +1295,94 @@ struct PermissionCard: View {
 }
 
 struct HowToUseCard: View {
-    let primaryHotkey: String
-    let secondaryHotkey: String
+    @ObservedObject var settings: SettingsManager
+
+    private func tint(for mode: CurrentRecordingMode) -> Color {
+        switch mode {
+        case .directPaste: return Theme.accentGreen
+        case .review: return Theme.accentPurple
+        case .translation: return Theme.accentBlue
+        }
+    }
+
+    private func icon(for mode: CurrentRecordingMode) -> String {
+        switch mode {
+        case .directPaste: return "bolt.fill"
+        case .review: return "wand.and.stars"
+        case .translation: return "globe"
+        }
+    }
+
+    private func blurb(for mode: CurrentRecordingMode) -> String {
+        switch mode {
+        case .directPaste: return "Hold to record, release and the text is typed at your cursor"
+        case .review: return "Hold to record, release to edit and restyle before inserting"
+        case .translation: return "Hold to record and get the text translated"
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Direct paste mode
-            HStack(spacing: 10) {
-                ZStack {
-                    Circle()
-                        .fill(Theme.accentGreen.opacity(0.2))
-                        .frame(width: 32, height: 32)
-                    Image(systemName: "bolt.fill")
-                        .font(.system(size: 14))
-                        .foregroundColor(Theme.accentGreen)
+            ForEach(Array(HotkeyOption.allCases.enumerated()), id: \.element) { index, key in
+                if index > 0 {
+                    Divider()
+                        .background(Theme.cardBorder)
+                        .padding(.leading, 56)
                 }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text("Direct Paste")
-                            .foregroundColor(Theme.textPrimary)
-                            .font(.system(size: 13, weight: .medium))
-                        Text(primaryHotkey)
-                            .foregroundColor(Theme.accentGreen)
-                            .font(.system(size: 12, weight: .medium))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .background(Theme.accentGreen.opacity(0.2))
-                            .cornerRadius(4)
-                    }
-                    Text("Hold to record, release to paste text instantly")
-                        .font(.system(size: 11))
-                        .foregroundColor(Theme.textTertiary)
-                }
-
-                Spacer()
+                row(for: key)
             }
-            .padding(14)
-
-            Divider()
-                .background(Theme.cardBorder)
-                .padding(.leading, 56)
-
-            // Review mode
-            HStack(spacing: 10) {
-                ZStack {
-                    Circle()
-                        .fill(Theme.accentPurple.opacity(0.2))
-                        .frame(width: 32, height: 32)
-                    Image(systemName: "wand.and.stars")
-                        .font(.system(size: 14))
-                        .foregroundColor(Theme.accentPurple)
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text("Review Mode")
-                            .foregroundColor(Theme.textPrimary)
-                            .font(.system(size: 13, weight: .medium))
-                        Text(secondaryHotkey)
-                            .foregroundColor(Theme.accentPurple)
-                            .font(.system(size: 12, weight: .medium))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .background(Theme.accentPurple.opacity(0.2))
-                            .cornerRadius(4)
-                    }
-                    Text("Hold to record, release to edit and restyle text")
-                        .font(.system(size: 11))
-                        .foregroundColor(Theme.textTertiary)
-                }
-
-                Spacer()
-            }
-            .padding(14)
-
-            Divider()
-                .background(Theme.cardBorder)
-                .padding(.leading, 56)
-
-            // Translation mode
-            HStack(spacing: 10) {
-                ZStack {
-                    Circle()
-                        .fill(Theme.accentBlue.opacity(0.2))
-                        .frame(width: 32, height: 32)
-                    Image(systemName: "globe")
-                        .font(.system(size: 14))
-                        .foregroundColor(Theme.accentBlue)
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text("Translate")
-                            .foregroundColor(Theme.textPrimary)
-                            .font(.system(size: 13, weight: .medium))
-                        Text("Fn")
-                            .foregroundColor(Theme.accentBlue)
-                            .font(.system(size: 12, weight: .medium))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .background(Theme.accentBlue.opacity(0.2))
-                            .cornerRadius(4)
-                    }
-                    Text("Hold Fn to record and translate")
-                        .font(.system(size: 11))
-                        .foregroundColor(Theme.textTertiary)
-                }
-
-                Spacer()
-            }
-            .padding(14)
         }
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(Theme.card)
                 .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.cardBorder, lineWidth: 1))
         )
+    }
+
+    private func row(for key: HotkeyOption) -> some View {
+        let mode = settings.action(for: key)
+        let language = settings.languageOverride(for: key)
+
+        return HStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(tint(for: mode).opacity(0.2))
+                    .frame(width: 32, height: 32)
+                Image(systemName: icon(for: mode))
+                    .font(.system(size: 14))
+                    .foregroundColor(tint(for: mode))
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(mode.shortName)
+                        .foregroundColor(Theme.textPrimary)
+                        .font(.system(size: 13, weight: .medium))
+                    Text(key.displayName)
+                        .foregroundColor(tint(for: mode))
+                        .font(.system(size: 12, weight: .medium))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(tint(for: mode).opacity(0.16))
+                        .cornerRadius(4)
+                    if let language {
+                        Text(language.displayName)
+                            .foregroundColor(Theme.textSecondary)
+                            .font(.system(size: 11))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2)
+                            .background(Theme.subtleFill)
+                            .cornerRadius(4)
+                    }
+                }
+                Text(blurb(for: mode))
+                    .font(.system(size: 11))
+                    .foregroundColor(Theme.textTertiary)
+            }
+
+            Spacer()
+        }
+        .padding(14)
     }
 }
 
@@ -1513,7 +1481,7 @@ struct TranscriptionModeSelector: View {
             // Mode-specific content
             if transcriptionMode == .offline {
                 ModelLibraryCard(localTranscription: localTranscription)
-                ModePerModelCard(settings: settings, localTranscription: localTranscription)
+                HotkeySetupCard(settings: settings, localTranscription: localTranscription)
             } else {
                 // Cloud mode: API Key
                 SettingsCard {

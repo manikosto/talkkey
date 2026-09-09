@@ -198,7 +198,7 @@ class LocalTranscriptionService: ObservableObject {
     /// installed. Returns the engine to transcribe with.
     private func engineForCurrentMode(translating: Bool) async throws -> WhisperKit {
         let settings = SettingsManager.shared
-        var wanted = settings.modelOverride(for: settings.activeTranscriptionMode) ?? selectedModel
+        var wanted = settings.modelOverride(for: settings.activeHotkey) ?? selectedModel
 
         // Turbo can't translate; silently fall back rather than emit garbage.
         if translating && !supportsTranslation(wanted) {

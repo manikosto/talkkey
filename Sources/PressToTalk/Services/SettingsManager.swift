@@ -76,67 +76,113 @@ class SettingsManager: ObservableObject {
 
     private let alwaysCopyKey = "alwaysCopyToClipboard"
 
-    // MARK: - Per-mode speech models
+    // MARK: - Per-key setup
 
-    /// Which mode the current recording belongs to, so transcription can pick
-    /// that mode's model. Set when recording starts.
-    var activeTranscriptionMode: CurrentRecordingMode = .directPaste
+    /// Which key is being held for the current recording, so transcription can
+    /// pick up that key's model and language.
+    var activeHotkey: HotkeyOption = .rightCmd
 
-    /// Model pinned to a mode, or nil to use the main model. Stored per mode
-    /// because the right trade-off differs: direct paste wants speed, review
-    /// can afford accuracy, and translation needs a model trained for it.
-    @Published var modelPerMode: [String: String] = [:] {
-        didSet { UserDefaults.standard.set(modelPerMode, forKey: modelPerModeKey) }
+    /// What each key does. Keys are independent slots: two of them can both
+    /// paste directly and differ only in language, which is the whole point of
+    /// "hold this key for Russian, that key for English".
+    @Published var actionPerKey: [String: String] = [:] {
+        didSet { UserDefaults.standard.set(actionPerKey, forKey: actionPerKeyKey) }
     }
 
-    private let modelPerModeKey = "modelPerMode"
+    /// Model pinned to a key, or nil to use the main model.
+    @Published var modelPerKey: [String: String] = [:] {
+        didSet { UserDefaults.standard.set(modelPerKey, forKey: modelPerKeyKey) }
+    }
 
-    private func modeKey(_ mode: CurrentRecordingMode) -> String {
-        switch mode {
-        case .directPaste: return "directPaste"
-        case .review: return "review"
-        case .translation: return "translation"
+    /// Language pinned to a key, or nil to use the main language.
+    ///
+    /// Naming the language is also more reliable than auto-detect, which can
+    /// misread short or accented speech and — because Whisper then
+    /// "transcribes" into the language it guessed — silently translate.
+    @Published var languagePerKey: [String: String] = [:] {
+        didSet { UserDefaults.standard.set(languagePerKey, forKey: languagePerKeyKey) }
+    }
+
+    private let actionPerKeyKey = "actionPerKey"
+    private let modelPerKeyKey = "modelPerKeyV2"
+    private let languagePerKeyKey = "languagePerKeyV2"
+
+    /// What a key did before any of this was configurable. Kept as the default
+    /// so existing muscle memory still works.
+    static func defaultAction(for key: HotkeyOption) -> CurrentRecordingMode {
+        switch key {
+        case .rightCmd: return .directPaste
+        case .rightOption: return .review
+        case .fn: return .translation
         }
     }
 
-    func modelOverride(for mode: CurrentRecordingMode) -> String? {
-        modelPerMode[modeKey(mode)]
+    func action(for key: HotkeyOption) -> CurrentRecordingMode {
+        guard let raw = actionPerKey[key.rawValue],
+              let mode = CurrentRecordingMode(storageKey: raw) else {
+            return Self.defaultAction(for: key)
+        }
+        return mode
     }
 
-    func setModelOverride(_ model: String?, for mode: CurrentRecordingMode) {
-        var copy = modelPerMode
-        if let model { copy[modeKey(mode)] = model } else { copy.removeValue(forKey: modeKey(mode)) }
-        modelPerMode = copy
+    func setAction(_ mode: CurrentRecordingMode, for key: HotkeyOption) {
+        var copy = actionPerKey
+        copy[key.rawValue] = mode.storageKey
+        actionPerKey = copy
     }
 
-    // MARK: - Per-mode language
-
-    /// Language pinned to a mode, or nil to use the main language.
-    ///
-    /// Worth having on its own: naming the language is more reliable than
-    /// auto-detect, which can misread short or accented speech and — because
-    /// Whisper then "transcribes" into the language it guessed — silently
-    /// translate instead of transcribing.
-    @Published var languagePerMode: [String: String] = [:] {
-        didSet { UserDefaults.standard.set(languagePerMode, forKey: languagePerModeKey) }
+    func modelOverride(for key: HotkeyOption) -> String? {
+        modelPerKey[key.rawValue]
     }
 
-    private let languagePerModeKey = "languagePerMode"
+    func setModelOverride(_ model: String?, for key: HotkeyOption) {
+        var copy = modelPerKey
+        if let model { copy[key.rawValue] = model } else { copy.removeValue(forKey: key.rawValue) }
+        modelPerKey = copy
+    }
 
-    func languageOverride(for mode: CurrentRecordingMode) -> WhisperLanguage? {
-        guard let raw = languagePerMode[modeKey(mode)] else { return nil }
+    func languageOverride(for key: HotkeyOption) -> WhisperLanguage? {
+        guard let raw = languagePerKey[key.rawValue] else { return nil }
         return WhisperLanguage(rawValue: raw)
     }
 
-    func setLanguageOverride(_ language: WhisperLanguage?, for mode: CurrentRecordingMode) {
-        var copy = languagePerMode
-        if let language { copy[modeKey(mode)] = language.rawValue } else { copy.removeValue(forKey: modeKey(mode)) }
-        languagePerMode = copy
+    func setLanguageOverride(_ language: WhisperLanguage?, for key: HotkeyOption) {
+        var copy = languagePerKey
+        if let language { copy[key.rawValue] = language.rawValue } else { copy.removeValue(forKey: key.rawValue) }
+        languagePerKey = copy
     }
 
     /// The language transcription should actually use right now.
     var effectiveLanguage: WhisperLanguage {
-        languageOverride(for: activeTranscriptionMode) ?? selectedLanguage
+        languageOverride(for: activeHotkey) ?? selectedLanguage
+    }
+
+    /// The first key set to this action, so the control bar — which picks an
+    /// action rather than a key — can still honour that key's settings.
+    func firstKey(for mode: CurrentRecordingMode) -> HotkeyOption? {
+        HotkeyOption.allCases.first { action(for: $0) == mode }
+    }
+
+    /// Moves the 2.24–2.29 per-mode settings onto the keys that ran those
+    /// modes, so nobody's configuration silently resets.
+    private func migratePerModeSettings() {
+        let migrationKey = "didMigratePerModeToPerKey"
+        guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
+
+        let oldModels = UserDefaults.standard.dictionary(forKey: "modelPerMode") as? [String: String] ?? [:]
+        let oldLanguages = UserDefaults.standard.dictionary(forKey: "languagePerMode") as? [String: String] ?? [:]
+
+        var models: [String: String] = [:]
+        var languages: [String: String] = [:]
+        for key in HotkeyOption.allCases {
+            let modeKey = Self.defaultAction(for: key).storageKey
+            if let model = oldModels[modeKey] { models[key.rawValue] = model }
+            if let language = oldLanguages[modeKey] { languages[key.rawValue] = language }
+        }
+
+        if !models.isEmpty { UserDefaults.standard.set(models, forKey: modelPerKeyKey) }
+        if !languages.isEmpty { UserDefaults.standard.set(languages, forKey: languagePerKeyKey) }
+        UserDefaults.standard.set(true, forKey: migrationKey)
     }
 
     init() {
@@ -181,8 +227,10 @@ class SettingsManager: ObservableObject {
         self.translationHotkey = TranslationHotkey(rawValue: translationHotkeyRaw) ?? .slash
 
         self.alwaysCopyToClipboard = UserDefaults.standard.bool(forKey: alwaysCopyKey)
-        self.modelPerMode = UserDefaults.standard.dictionary(forKey: modelPerModeKey) as? [String: String] ?? [:]
-        self.languagePerMode = UserDefaults.standard.dictionary(forKey: languagePerModeKey) as? [String: String] ?? [:]
+        migratePerModeSettings()
+        self.actionPerKey = UserDefaults.standard.dictionary(forKey: actionPerKeyKey) as? [String: String] ?? [:]
+        self.modelPerKey = UserDefaults.standard.dictionary(forKey: modelPerKeyKey) as? [String: String] ?? [:]
+        self.languagePerKey = UserDefaults.standard.dictionary(forKey: languagePerKeyKey) as? [String: String] ?? [:]
 
         refreshMicrophones()
     }

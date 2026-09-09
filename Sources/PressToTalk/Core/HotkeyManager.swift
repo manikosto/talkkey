@@ -22,6 +22,8 @@ class HotkeyManager {
     private var isTranslationHotkeyPressed = false
     private var wasFnHeld = false  // Track Fn state for reliable detection
     private var currentMode: RecordingMode = .directPaste
+    /// Which physical key started this recording, so its model and language apply.
+    private var activeHotkey: HotkeyOption = .rightCmd
     private var recordingStartTime: Date?
     private var isCurrentlyRecording = false  // Local tracking to avoid main actor issues
 
@@ -99,29 +101,33 @@ class HotkeyManager {
             isTranslationHotkeyPressed = false
         }
 
-        // Start recording logic
+        // Start recording. What each key *does* is configurable, so two keys
+        // can both dictate straight to the cursor and differ only in language.
         if !isCurrentlyRecording {
+            var pressedKey: HotkeyOption?
             if rightCmdPressed && !rightOptHeld && !fnHeld {
-                // Only Right Cmd = direct paste
-                currentMode = .directPaste
-                isCurrentlyRecording = true
-                startRecording()
+                pressedKey = .rightCmd
             } else if rightOptPressed && !rightCmdHeld && !fnHeld {
-                // Only Right Option = review mode (Pro only)
-                if !LicenseManager.checkIsPro() {
-                    showNotification(title: "Pro Feature", body: "Review mode requires Pro license")
-                    return
-                }
-                currentMode = .review
-                isCurrentlyRecording = true
-                startRecording()
+                pressedKey = .rightOption
             } else if fnJustPressed && !rightCmdHeld && !rightOptHeld {
-                // Only Fn = translation mode (Pro only)
-                if !LicenseManager.checkIsPro() {
-                    showNotification(title: "Pro Feature", body: "Translation requires Pro license")
+                pressedKey = .fn
+            }
+
+            if let pressedKey {
+                let mode = SettingsManager.shared.action(for: pressedKey)
+
+                if mode.requiresPro && !LicenseManager.checkIsPro() {
+                    showNotification(title: "Pro Feature",
+                                     body: "\(mode.shortName) requires a Pro license")
                     return
                 }
-                currentMode = .translation
+
+                activeHotkey = pressedKey
+                switch mode {
+                case .directPaste: currentMode = .directPaste
+                case .review: currentMode = .review
+                case .translation: currentMode = .translation
+                }
                 isCurrentlyRecording = true
                 startRecording()
             }
@@ -171,6 +177,8 @@ class HotkeyManager {
             case .review: currentMode = .review
             case .translation: currentMode = .translation
             }
+
+            activeHotkey = SettingsManager.shared.firstKey(for: AppState.shared.currentRecordingMode) ?? .rightCmd
 
             if currentMode != .directPaste && !LicenseManager.checkIsPro() {
                 ResultToastController.shared.show(
@@ -240,7 +248,7 @@ class HotkeyManager {
                 }
 
                 // Transcription picks the model pinned to this mode.
-                SettingsManager.shared.activeTranscriptionMode = AppState.shared.currentRecordingMode
+                SettingsManager.shared.activeHotkey = activeHotkey
 
                 AppState.shared.recordingStartedAt = Date()
                 AppState.shared.isRecording = true
