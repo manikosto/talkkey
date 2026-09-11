@@ -8,6 +8,29 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.32</title>
+      <sparkle:version>2.32</sparkle:version>
+      <sparkle:shortVersionString>2.32</sparkle:shortVersionString>
+      <pubDate>Fri, 11 Sep 2026 11:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.32</h2>
+        <ul>
+          <li><b>Translate on Enter.</b> Hold a Translate-text key while an app is in front to arm it — from then on you type the way you think, press Enter, and the message goes out translated. Shift+Enter still sends as typed, and a failed translation sends nothing</li>
+          <li>It is set per app and remembered between launches, with a badge on the control bar showing where it is on</li>
+          <li><b>Translation is now instant.</b> On-device translation used to fall back to OpenAI on nearly every request; three separate bugs caused that. A translation now takes about 0.2 seconds, offline, and the model is warmed up at launch</li>
+          <li><b>Ukrainian</b> as a translation target and a dictation language</li>
+          <li>A language pack that macOS reports as installed but that still fails now falls back to OpenAI instead of showing an error</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.32/TalkKey.zip"
+          sparkle:edSignature="p+ok2tSECJJiz457kim3Ig7+YumONdHSgJvEwiJUIxhfU4fVp6R4owKQSDuZ7/vGK8uPdYi4jlUwzwLpI+dPAg=="
+          length="4550816"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.31</title>
       <sparkle:version>2.31</sparkle:version>
       <sparkle:shortVersionString>2.31</sparkle:shortVersionString>
