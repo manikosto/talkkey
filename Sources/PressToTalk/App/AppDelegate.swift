@@ -99,6 +99,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         }
                         DebugLog.append(line)
                     }
+                } else if environment["TALKKEY_TEST_RETURN"] != nil {
+                    DebugLog.append("TEST_RETURN: frontmost=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "?")")
+                    PasteboardManager.shared.postReturn()
+                } else if environment["TALKKEY_TEST_ENTER"] != nil {
+                    EnterTranslationMode.shared.simulateCaughtEnter(target: target)
                 } else {
                     TextFieldTranslator.shared.translateFocusedText(to: target)
                 }

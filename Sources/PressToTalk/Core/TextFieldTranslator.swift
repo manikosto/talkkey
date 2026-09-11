@@ -84,8 +84,7 @@ final class TextFieldTranslator {
             ResultToastController.shared.show(
                 kind: .info,
                 title: "Already in \(target.fullName)",
-                detail: "The text is left as it is.",
-                duration: 4
+                duration: 3
             )
             return .alreadyInTarget
         }
@@ -105,15 +104,10 @@ final class TextFieldTranslator {
             )
             HistoryManager.shared.add(translated)
 
-            if !quietSuccess {
-                ResultToastController.shared.show(
-                    kind: .success,
-                    title: "Translated to \(target.fullName) \(result.engine.label)",
-                    detail: translated,
-                    copyText: translated,
-                    duration: 5
-                )
-            }
+            // Deliberately silent: the translated text is now in the field,
+            // which is the whole confirmation. A toast offering to copy it
+            // would only be something else to dismiss.
+            _ = quietSuccess
             return .replaced(translated)
         } catch {
             print("TextFieldTranslator: failed: \(error)")

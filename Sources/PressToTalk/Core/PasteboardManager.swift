@@ -156,16 +156,53 @@ class PasteboardManager {
         return nil
     }
 
-    /// Types `text` over the focused field: over the selection, or over
-    /// everything when `selectionOnly` is false.
+    /// Puts `text` in the focused field in place of the selection, or of the
+    /// whole field when `selectionOnly` is false.
+    ///
+    /// Accessibility is tried first: it swaps the text in one step, with no
+    /// select-all flash and no typing to wait for. It is verified by reading
+    /// the field back, because some apps accept the write and ignore it —
+    /// only then does the keyboard route run.
     func replaceFocusedText(with text: String, selectionOnly: Bool) {
         // Only wait for focus when it actually had to move.
         if activateTargetApp() { usleep(120_000) }
+
+        if replaceViaAccessibility(with: text, selectionOnly: selectionOnly) { return }
+
         if !selectionOnly {
             postShortcut(virtualKey: 0, flags: .maskCommand) // ⌘A
             usleep(30_000)
         }
         typeText(text)
+    }
+
+    /// Writes the text straight into the focused element. Returns whether the
+    /// field actually holds it afterwards.
+    private func replaceViaAccessibility(with text: String, selectionOnly: Bool) -> Bool {
+        guard let element = focusedElement() else { return false }
+
+        let attribute = selectionOnly ? kAXSelectedTextAttribute : kAXValueAttribute
+        guard AXUIElementSetAttributeValue(element, attribute as CFString, text as CFTypeRef) == .success else {
+            return false
+        }
+
+        // Confirm it landed: a web or Electron field can report success and
+        // leave its own state untouched.
+        var valueRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &valueRef) == .success,
+              let value = valueRef as? String else {
+            return false
+        }
+        guard selectionOnly ? value.contains(text) : value == text else { return false }
+
+        // Leave the caret at the end, not a selection over what was written.
+        if !selectionOnly {
+            var range = CFRange(location: (text as NSString).length, length: 0)
+            if let axRange = AXValueCreate(.cfRange, &range) {
+                AXUIElementSetAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, axRange)
+            }
+        }
+        return true
     }
 
     /// Brings the target app forward if something else is in front.
@@ -220,11 +257,19 @@ class PasteboardManager {
     /// Presses Enter in the target app, marked so TalkKey's own Enter tap
     /// (Translate on Enter) lets it through.
     func postReturn() {
+        // The marker goes on the source: the event field of the same name is
+        // filled in from it, and writing it on the event directly produced an
+        // event the window server quietly dropped.
         let source = CGEventSource(stateID: .hidSystemState)
+        source?.userData = EnterTranslationMode.ownEventMarker
         for down in [true, false] {
-            guard let event = CGEvent(keyboardEventSource: source, virtualKey: 36, keyDown: down) else { continue }
-            event.setIntegerValueField(.eventSourceUserData, value: EnterTranslationMode.ownEventMarker)
+            guard let event = CGEvent(keyboardEventSource: source, virtualKey: 36, keyDown: down) else {
+                DebugLog.append("postReturn: could not create event (down=\(down))")
+                continue
+            }
+            event.flags = []
             event.post(tap: .cghidEventTap)
+            DebugLog.append("postReturn: posted (down=\(down))")
         }
     }
 
@@ -294,6 +339,12 @@ class PasteboardManager {
                   let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false) else {
                 return
             }
+
+            // Without this the events inherit whatever modifiers the system
+            // currently sees — including the ⌘ from a select-all just posted,
+            // which turns every character into a menu shortcut instead of text.
+            keyDown.flags = []
+            keyUp.flags = []
 
             // Set the unicode string for this chunk
             chunk.withUnsafeBufferPointer { buffer in

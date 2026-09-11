@@ -19,6 +19,9 @@ final class EnterTranslationMode {
     /// them through instead of translating a second time.
     nonisolated static let ownEventMarker: Int64 = 0x54_4B_45_59 // "TKEY"
 
+    /// Debug: TALKKEY_LOG_KEYS=1 logs every key the tap sees.
+    nonisolated static let logKeys = ProcessInfo.processInfo.environment["TALKKEY_LOG_KEYS"] != nil
+
     private let storageKey = "enterTranslationPerApp"
 
     /// bundle id → target language code.
@@ -29,6 +32,10 @@ final class EnterTranslationMode {
     private var tap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var isHandlingEnter = false
+    /// Enters TalkKey has posted itself and the tap has yet to see. The
+    /// marker on the event is the first defence; this is the one that does not
+    /// depend on a field surviving its trip through the event system.
+    private var pendingOwnReturns = 0
 
     private init() {
         targets = UserDefaults.standard.dictionary(forKey: storageKey) as? [String: String] ?? [:]
@@ -106,6 +113,7 @@ final class EnterTranslationMode {
 
     private func installTap() {
         guard tap == nil else { return }
+        DebugLog.append("EnterTranslationMode: installing tap for \(targets)")
         guard AXIsProcessTrusted() else {
             ResultToastController.shared.show(
                 kind: .warning,
@@ -140,6 +148,7 @@ final class EnterTranslationMode {
         CGEvent.tapEnable(tap: tap, enable: true)
         self.tap = tap
         self.runLoopSource = source
+        DebugLog.append("EnterTranslationMode: tap installed")
     }
 
     private func removeTap() {
@@ -158,8 +167,16 @@ final class EnterTranslationMode {
         guard type == .keyDown else { return Unmanaged.passUnretained(event) }
 
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+        if Self.logKeys {
+            DebugLog.append("tap: keyCode=\(keyCode) flags=\(event.flags.rawValue) userData=\(event.getIntegerValueField(.eventSourceUserData))")
+        }
         guard keyCode == 36 || keyCode == 76 else { return Unmanaged.passUnretained(event) }
         guard event.getIntegerValueField(.eventSourceUserData) != Self.ownEventMarker else {
+            return Unmanaged.passUnretained(event)
+        }
+        if pendingOwnReturns > 0 {
+            pendingOwnReturns -= 1
+            DebugLog.append("EnterTranslationMode: passing through our own Enter")
             return Unmanaged.passUnretained(event)
         }
         // Modified Enter is the app's own business (newline, send-with-cmd…).
@@ -174,6 +191,7 @@ final class EnterTranslationMode {
         // not slip the untranslated text out; swallow it.
         guard !isHandlingEnter else { return nil }
 
+        DebugLog.append("EnterTranslationMode: caught Enter in \(bundleId)")
         isHandlingEnter = true
         Task { @MainActor in
             await self.translateThenSend(target: target)
@@ -182,16 +200,40 @@ final class EnterTranslationMode {
         return nil
     }
 
+    /// Debug: runs exactly what a caught Enter runs, so the flow can be
+    /// exercised without a physical key press.
+    func simulateCaughtEnter(target: TranslationLanguage) {
+        guard !isHandlingEnter else { return }
+        isHandlingEnter = true
+        Task { @MainActor in
+            await translateThenSend(target: target)
+            isHandlingEnter = false
+        }
+    }
+
+    /// Presses Enter for real, having told the tap to expect it.
+    private func sendReturn() {
+        pendingOwnReturns += 1
+        DebugLog.append("EnterTranslationMode: sending Enter")
+        PasteboardManager.shared.postReturn()
+        // If the tap never sees it (the mode was switched off in between),
+        // don't leave the allowance sitting there for the user's next Enter.
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            if pendingOwnReturns > 0 { pendingOwnReturns -= 1 }
+        }
+    }
+
     private func translateThenSend(target: TranslationLanguage) async {
         let outcome = await TextFieldTranslator.shared.translateFocusedText(to: target, quietSuccess: true)
         switch outcome {
         case .replaced(let text):
-            // Let the app finish consuming the typed characters before Enter.
-            let settle = min(1.2, 0.2 + Double(text.count) / 1500)
+            // Let the app finish consuming the new text before Enter.
+            let settle = min(1.2, 0.15 + Double(text.count) / 3000)
             try? await Task.sleep(for: .seconds(settle))
-            PasteboardManager.shared.postReturn()
+            sendReturn()
         case .alreadyInTarget, .nothingToTranslate:
-            PasteboardManager.shared.postReturn()
+            sendReturn()
         case .failed, .busy:
             break // Nothing sent; the typed text is still there.
         }
