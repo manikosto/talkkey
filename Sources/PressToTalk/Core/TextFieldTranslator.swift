@@ -15,17 +15,33 @@ final class TextFieldTranslator {
 
     private init() {}
 
+    enum Outcome {
+        /// The field now holds this translation.
+        case replaced(String)
+        case alreadyInTarget
+        case nothingToTranslate
+        case failed
+        /// Another run is still in progress.
+        case busy
+    }
+
     /// Runs the whole action and reports through the result toast.
     func translateFocusedText(to target: TranslationLanguage) {
-        guard !isRunning else { return }
-        isRunning = true
         Task { @MainActor in
-            defer { isRunning = false }
-            await run(target: target)
+            _ = await translateFocusedText(to: target, quietSuccess: false)
         }
     }
 
-    private func run(target: TranslationLanguage) async {
+    /// Same, but tells the caller what happened. `quietSuccess` skips the
+    /// success toast for flows where the result is obvious (Enter mode).
+    func translateFocusedText(to target: TranslationLanguage, quietSuccess: Bool) async -> Outcome {
+        guard !isRunning else { return .busy }
+        isRunning = true
+        defer { isRunning = false }
+        return await run(target: target, quietSuccess: quietSuccess)
+    }
+
+    private func run(target: TranslationLanguage, quietSuccess: Bool) async -> Outcome {
         print("TextFieldTranslator: target=\(target.rawValue) trusted=\(AXIsProcessTrusted())")
         guard AXIsProcessTrusted() else {
             ResultToastController.shared.show(
@@ -34,7 +50,7 @@ final class TextFieldTranslator {
                 detail: "TalkKey reads and replaces the text in the field through Accessibility. Grant it in Settings, then try again.",
                 duration: 10
             )
-            return
+            return .failed
         }
 
         // Remember where the text lives so typing goes back to the same app,
@@ -50,7 +66,7 @@ final class TextFieldTranslator {
                 detail: "Click into a text field with some text, then tap the key again.",
                 duration: 6
             )
-            return
+            return .nothingToTranslate
         }
 
         let source = capture.text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -61,7 +77,7 @@ final class TextFieldTranslator {
                 detail: "Type something first, then tap the key to translate it.",
                 duration: 6
             )
-            return
+            return .nothingToTranslate
         }
 
         if let detected = TranslationService.shared.detectLanguage(of: source), detected == target {
@@ -71,7 +87,7 @@ final class TextFieldTranslator {
                 detail: "The text is left as it is.",
                 duration: 4
             )
-            return
+            return .alreadyInTarget
         }
 
         AppState.shared.isTranslatingText = true
@@ -89,13 +105,16 @@ final class TextFieldTranslator {
             )
             HistoryManager.shared.add(translated)
 
-            ResultToastController.shared.show(
-                kind: .success,
-                title: "Translated to \(target.fullName) \(result.engine.label)",
-                detail: translated,
-                copyText: translated,
-                duration: 5
-            )
+            if !quietSuccess {
+                ResultToastController.shared.show(
+                    kind: .success,
+                    title: "Translated to \(target.fullName) \(result.engine.label)",
+                    detail: translated,
+                    copyText: translated,
+                    duration: 5
+                )
+            }
+            return .replaced(translated)
         } catch {
             print("TextFieldTranslator: failed: \(error)")
             ResultToastController.shared.show(
@@ -105,6 +124,7 @@ final class TextFieldTranslator {
                 copyText: source,
                 duration: 10
             )
+            return .failed
         }
     }
 }

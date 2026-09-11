@@ -28,6 +28,10 @@ class HotkeyManager {
     /// A Translate-text key is down. Nothing happens until every modifier is
     /// up, so the ⌘A and typing that follow aren't mangled by a held ⌘.
     private var pendingTextTranslationKey: HotkeyOption?
+    /// Fires if that key is still held after `holdToToggleDelay`: holding,
+    /// rather than tapping, switches Translate on Enter for the current app.
+    private var holdToToggleTimer: Timer?
+    private let holdToToggleDelay: TimeInterval = 0.7
     private var isCurrentlyRecording = false  // Local tracking to avoid main actor issues
 
     private let audioRecorder = AudioRecorder.shared
@@ -60,13 +64,13 @@ class HotkeyManager {
         // Escape to cancel
         if event.keyCode == 53 {
             cancelRecording()
-            pendingTextTranslationKey = nil
+            clearPendingTextTranslation()
             return
         }
         // Any other key while a Translate-text key is held means it was used
         // as an ordinary modifier (Right ⌘ + C), not tapped.
         if pendingTextTranslationKey != nil {
-            pendingTextTranslationKey = nil
+            clearPendingTextTranslation()
         }
     }
 
@@ -134,6 +138,16 @@ class HotkeyManager {
 
                 guard mode.recordsAudio else {
                     pendingTextTranslationKey = pressedKey
+                    holdToToggleTimer?.invalidate()
+                    holdToToggleTimer = Timer.scheduledTimer(withTimeInterval: holdToToggleDelay, repeats: false) { [weak self] _ in
+                        guard let self, self.pendingTextTranslationKey == pressedKey else { return }
+                        // Consumed as a hold: the release must not translate.
+                        self.pendingTextTranslationKey = nil
+                        let target = SettingsManager.shared.targetLanguage(for: pressedKey)
+                        Task { @MainActor in
+                            EnterTranslationMode.shared.toggleForFrontmostApp(target: target)
+                        }
+                    }
                     return
                 }
 
@@ -151,7 +165,7 @@ class HotkeyManager {
 
         // A tapped Translate-text key fires once it is fully released.
         if let key = pendingTextTranslationKey, !rightCmdHeld && !rightOptHeld && !fnHeld {
-            pendingTextTranslationKey = nil
+            clearPendingTextTranslation()
             let target = SettingsManager.shared.targetLanguage(for: key)
             Task { @MainActor in
                 TextFieldTranslator.shared.translateFocusedText(to: target)
@@ -166,6 +180,12 @@ class HotkeyManager {
             isCurrentlyRecording = false
             stopRecordingAndTranscribe()
         }
+    }
+
+    private func clearPendingTextTranslation() {
+        pendingTextTranslationKey = nil
+        holdToToggleTimer?.invalidate()
+        holdToToggleTimer = nil
     }
 
     private func checkHotkey(hotkey: HotkeyOption, flags: NSEvent.ModifierFlags, keyCode: UInt16, wasPressed: Bool) -> (pressed: Bool, released: Bool) {

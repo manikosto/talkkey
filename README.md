@@ -22,6 +22,7 @@ A native macOS voice-to-text app powered by OpenAI Whisper. Press a hotkey, spea
 | Right Option | Hold to record, release to open review window |
 | Fn | Hold to record with translation |
 | Any key set to *Translate text* | Tap to translate what is typed in the focused field (or just the selection) |
+| Hold a *Translate text* key | Toggle **Translate on Enter** for the app in front: Enter translates, then sends. Shift+Enter sends as typed |
 | Esc | Cancel recording |
 
 ## Requirements

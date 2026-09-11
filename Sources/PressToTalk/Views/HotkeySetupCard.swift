@@ -198,6 +198,8 @@ struct HotkeySetupCard: View {
 
             hint("Translate text: type in your own language, tap the key, and the text in the field is replaced with the translation before you send it. Select part of the text to translate just that.")
 
+            hint("Hold a Translate-text key for a moment to turn on Translate on Enter for the app in front: from then on a plain Enter there translates and sends. Shift+Enter sends as typed; hold again to turn off.")
+
             if let translateKey = HotkeyOption.allCases.first(where: {
                 settings.action(for: $0) == .translation
             }), let model = settings.modelOverride(for: translateKey),

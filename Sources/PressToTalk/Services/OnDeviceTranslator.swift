@@ -36,15 +36,31 @@ final class OnDeviceTranslator {
     }
 
     private let host = TranslationHostModel()
-    private var panel: NSPanel?
+    private var panel: NSWindow?
+    /// Requests run one at a time. A configuration change cancels the task
+    /// serving the previous request, and a session cancelled mid-translate
+    /// was seen to never come back — so overlapping requests must not happen.
+    private var queue: Task<Void, Never>?
 
     private init() {}
 
-    func availability(for text: String, to target: TranslationLanguage) async -> Availability {
+    /// Debug: TALKKEY_TRANSLATE_PREPARE=1 calls prepareTranslation() even for
+    /// installed languages, to see whether macOS wants to (re)download.
+    private let forcePrepare = ProcessInfo.processInfo.environment["TALKKEY_TRANSLATE_PREPARE"] != nil
+
+    /// `source` is the language the text was found to be in; without it the
+    /// framework has to identify the language itself, which it cannot do for
+    /// a language whose pack isn't installed yet (unableToIdentifyLanguage).
+    func availability(for text: String, from source: Locale.Language?, to target: TranslationLanguage) async -> Availability {
         let language = Locale.Language(identifier: target.localeIdentifier)
-        guard let status = try? await LanguageAvailability().status(for: text, to: language) else {
-            return .unsupported
+        let availability = LanguageAvailability()
+        let status: LanguageAvailability.Status?
+        if let source {
+            status = await availability.status(from: source, to: language)
+        } else {
+            status = try? await availability.status(for: text, to: language)
         }
+        guard let status else { return .unsupported }
         switch status {
         case .installed: return .installed
         case .supported: return .needsDownload
@@ -56,18 +72,30 @@ final class OnDeviceTranslator {
     /// Translates `text`, letting the framework detect the source language.
     /// When the pack is missing and `allowDownload` is set, the system asks
     /// the user to download it first.
-    func translate(_ text: String, to target: TranslationLanguage, allowDownload: Bool) async throws -> String {
+    func translate(_ text: String, from source: Locale.Language?, to target: TranslationLanguage, allowDownload: Bool) async throws -> String {
+        let previous = queue
+        let task = Task<String, Error> { @MainActor in
+            await previous?.value
+            return try await self.perform(text, from: source, to: target, allowDownload: allowDownload)
+        }
+        queue = Task { _ = try? await task.value }
+        return try await task.value
+    }
+
+    private func perform(_ text: String, from source: Locale.Language?, to target: TranslationLanguage, allowDownload: Bool) async throws -> String {
         ensurePanel()
 
-        let job = TranslationJob(text: text, prepare: allowDownload)
+        let job = TranslationJob(text: text, prepare: allowDownload || forcePrepare)
         host.pending = job
-        host.configuration = TranslationSession.Configuration(
-            source: nil,
-            target: Locale.Language(identifier: target.localeIdentifier)
-        )
-        // Same target twice in a row would compare equal and never re-run the
-        // task; invalidating bumps the version so it always does.
-        host.configuration?.invalidate()
+        let targetLanguage = Locale.Language(identifier: target.localeIdentifier)
+        if host.configuration?.source == source, host.configuration?.target == targetLanguage {
+            // Same pair as last time: a fresh Configuration would compare
+            // equal (versions start at 0) and the task would never re-run.
+            // Invalidating the stored one bumps its version instead.
+            host.configuration?.invalidate()
+        } else {
+            host.configuration = TranslationSession.Configuration(source: source, target: targetLanguage)
+        }
 
         if allowDownload { showPanel() }
         defer { if allowDownload { hidePanel() } }
@@ -87,14 +115,28 @@ final class OnDeviceTranslator {
         }
     }
 
+    /// Loads the model for `target` ahead of the first real request, so the
+    /// first tap of the day isn't the one that pays the ~1s model start-up.
+    func warmUp(target: TranslationLanguage) {
+        Task { @MainActor in
+            let probe = target == .english ? "Привет" : "Hello"
+            let source = Locale.Language(identifier: target == .english ? "ru" : "en")
+            guard await availability(for: probe, from: source, to: target) == .installed else { return }
+            _ = try? await translate(probe, from: source, to: target, allowDownload: false)
+        }
+    }
+
     // MARK: - Hosting panel
 
     private func ensurePanel() {
         guard panel == nil else { return }
 
-        let panel = NSPanel(
+        // A plain window rather than a non-activating panel: the system's
+        // language-download sheet is attached to this window and needs it to
+        // be key, which a non-activating panel can never be.
+        let panel = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 340, height: 96),
-            styleMask: [.titled, .nonactivatingPanel, .fullSizeContentView],
+            styleMask: [.titled, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -107,6 +149,7 @@ final class OnDeviceTranslator {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.contentView = NSHostingView(rootView: TranslationHostView(model: host))
         // Ordered in so SwiftUI runs the task, but invisible and untouchable.
+        // orderFrontRegardless does not activate TalkKey or take focus.
         panel.alphaValue = 0
         panel.ignoresMouseEvents = true
         panel.orderFrontRegardless()
@@ -118,7 +161,8 @@ final class OnDeviceTranslator {
         panel.center()
         panel.ignoresMouseEvents = false
         panel.alphaValue = 1
-        panel.orderFrontRegardless()
+        NSApp.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
     }
 
     private func hidePanel() {
@@ -163,11 +207,17 @@ final class TranslationHostModel: ObservableObject {
         pending = nil
         do {
             if job.prepare {
+                DebugLog.append("OnDeviceTranslator: prepareTranslation (download prompt)…")
                 try await session.prepareTranslation()
+                DebugLog.append("OnDeviceTranslator: prepared")
             }
+            let started = Date()
+            DebugLog.append("OnDeviceTranslator: translating \(session.sourceLanguage?.minimalIdentifier ?? "?")→\(session.targetLanguage?.minimalIdentifier ?? "?")")
             let response = try await session.translate(job.text)
+            DebugLog.append("OnDeviceTranslator: done in \(String(format: "%.2f", Date().timeIntervalSince(started)))s")
             job.succeed(with: response.targetText)
         } catch {
+            DebugLog.append("OnDeviceTranslator: error \(error)")
             job.fail(with: error)
         }
     }

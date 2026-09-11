@@ -66,6 +66,19 @@ struct ControlBarView: View {
                             .foregroundColor(.white.opacity(0.6))
                     }
                     .padding(.trailing, 1)
+                } else if let target = appState.enterTranslation {
+                    // Translate on Enter is armed for the app in front.
+                    HStack(spacing: 3) {
+                        Image(systemName: "return")
+                            .font(.system(size: 8, weight: .semibold))
+                        Text(target.rawValue.uppercased())
+                            .font(.system(size: 9, weight: .semibold))
+                    }
+                    .foregroundColor(.white.opacity(0.85))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color(red: 0.30, green: 0.78, blue: 0.80).opacity(0.35)))
+                    .help("Translate on Enter is on here — messages go out in \(target.fullName)")
                 }
 
                 chevronButton

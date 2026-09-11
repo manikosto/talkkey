@@ -414,6 +414,7 @@ enum WhisperLanguage: String, CaseIterable, Identifiable {
     case auto = "auto"
     case english = "en"
     case russian = "ru"
+    case ukrainian = "uk"
     case spanish = "es"
     case french = "fr"
     case german = "de"
@@ -430,6 +431,7 @@ enum WhisperLanguage: String, CaseIterable, Identifiable {
         case .auto: return "Auto-detect"
         case .english: return "English"
         case .russian: return "Russian"
+        case .ukrainian: return "Ukrainian"
         case .spanish: return "Spanish"
         case .french: return "French"
         case .german: return "German"
@@ -561,6 +563,7 @@ enum RewriteStyle: String, CaseIterable, Identifiable {
 enum TranslationLanguage: String, CaseIterable, Identifiable {
     case english = "en"
     case russian = "ru"
+    case ukrainian = "uk"
     case spanish = "es"
     case french = "fr"
     case german = "de"
@@ -578,6 +581,7 @@ enum TranslationLanguage: String, CaseIterable, Identifiable {
         switch self {
         case .english: return "English"
         case .russian: return "Русский"
+        case .ukrainian: return "Українська"
         case .spanish: return "Español"
         case .french: return "Français"
         case .german: return "Deutsch"
@@ -595,6 +599,7 @@ enum TranslationLanguage: String, CaseIterable, Identifiable {
         switch self {
         case .english: return "🇺🇸"
         case .russian: return "🇷🇺"
+        case .ukrainian: return "🇺🇦"
         case .spanish: return "🇪🇸"
         case .french: return "🇫🇷"
         case .german: return "🇩🇪"
@@ -612,6 +617,7 @@ enum TranslationLanguage: String, CaseIterable, Identifiable {
         switch self {
         case .english: return "English"
         case .russian: return "Russian"
+        case .ukrainian: return "Ukrainian"
         case .spanish: return "Spanish"
         case .french: return "French"
         case .german: return "German"

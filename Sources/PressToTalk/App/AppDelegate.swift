@@ -53,6 +53,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         hotkeyManager = HotkeyManager.shared
         hotkeyManager?.setup()
 
+        // Translate on Enter: re-arms its Enter tap for apps it was left on in.
+        EnterTranslationMode.shared.start()
+
+        if SettingsManager.shared.onDeviceTranslationEnabled, #available(macOS 15.0, *) {
+            OnDeviceTranslator.shared.warmUp(target: SettingsManager.shared.targetLanguage)
+        }
+        AppState.shared.$enterTranslation
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.updateStatusIcon() }
+            .store(in: &cancellables)
+
         // Observe state changes to update icon
         AppState.shared.$isRecording
             .receive(on: DispatchQueue.main)
@@ -78,12 +89,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
                 if let text = environment["TALKKEY_TRANSLATE_TEXT"] {
                     Task {
+                        DebugLog.append("TRANSLATE_TEXT start → \(target.rawValue)")
+                        let line: String
                         do {
                             let result = try await TranslationService.shared.translateDetailed(text: text, to: target)
-                            print("TRANSLATE_TEXT ok \(result.engine.label): \(result.text)")
+                            line = "TRANSLATE_TEXT ok \(result.engine.label): \(result.text)"
                         } catch {
-                            print("TRANSLATE_TEXT failed: \(error)")
+                            line = "TRANSLATE_TEXT failed: \(error)"
                         }
+                        DebugLog.append(line)
                     }
                 } else {
                     TextFieldTranslator.shared.translateFocusedText(to: target)
@@ -160,6 +174,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         translateItem.tag = 102
         menu.addItem(translateItem)
 
+        let enterItem = NSMenuItem(title: "Translate on Enter", action: #selector(toggleEnterTranslation), keyEquivalent: "")
+        enterItem.target = self
+        enterItem.tag = 103
+        menu.addItem(enterItem)
+
         // Settings
         let settingsItem = NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
@@ -212,6 +231,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let item = statusItem.menu?.item(withTag: 102) {
             item.title = "Translate Text in Field → \(SettingsManager.shared.targetLanguage.displayName)"
         }
+        if let item = statusItem.menu?.item(withTag: 103) {
+            let mode = EnterTranslationMode.shared
+            if let target = AppState.shared.enterTranslation {
+                item.title = "Translate on Enter: On in \(mode.frontmostAppName) → \(target.displayName)"
+                item.state = .on
+            } else {
+                item.title = "Translate on Enter in \(mode.frontmostAppName)"
+                item.state = .off
+            }
+        }
+    }
+
+    @objc private func toggleEnterTranslation() {
+        if !LicenseManager.checkIsPro() {
+            ResultToastController.shared.show(
+                kind: .warning,
+                title: "Pro feature",
+                detail: "Translating text requires a Pro license."
+            )
+            return
+        }
+        // Use the Translate-text key's target when one is configured.
+        let key = SettingsManager.shared.firstKey(for: .translateText)
+        let target = key.map { SettingsManager.shared.targetLanguage(for: $0) } ?? SettingsManager.shared.targetLanguage
+        EnterTranslationMode.shared.toggleForFrontmostApp(target: target)
     }
 
     @objc private func translateFocusedField() {

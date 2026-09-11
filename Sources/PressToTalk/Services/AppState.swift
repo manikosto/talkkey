@@ -73,6 +73,8 @@ class AppState: ObservableObject {
     @Published var isTranscribing = false
     /// Typed text is being translated in place (the Translate text action).
     @Published var isTranslatingText = false
+    /// Translate on Enter is on for the frontmost app, into this language.
+    @Published var enterTranslation: TranslationLanguage?
     @Published var currentRecordingMode: CurrentRecordingMode = .directPaste
     @Published var recordingStartedAt: Date?
     @Published var needsModelSetup = false

@@ -39,16 +39,28 @@ class TranslationService {
 
         if SettingsManager.shared.onDeviceTranslationEnabled, #available(macOS 15.0, *) {
             let translator = await OnDeviceTranslator.shared
-            switch await translator.availability(for: text, to: targetLanguage) {
+            let source = detectSourceLocale(of: text)
+            let availability = await translator.availability(for: text, from: source, to: targetLanguage)
+            DebugLog.append("TranslationService: source=\(source?.minimalIdentifier ?? "?") target=\(targetLanguage.rawValue) availability=\(availability)")
+            switch availability {
             case .installed:
-                let translated = try await translator.translate(text, to: targetLanguage, allowDownload: false)
-                return Result(text: translated, engine: .onDevice)
+                do {
+                    let translated = try await translator.translate(text, from: source, to: targetLanguage, allowDownload: false)
+                    return Result(text: translated, engine: .onDevice)
+                } catch {
+                    // Seen with a half-installed pack (Ukrainian reported
+                    // installed, then failed with internalError). OpenAI if it
+                    // can; otherwise say what to do.
+                    DebugLog.append("TranslationService: on-device failed for installed pack: \(error)")
+                    guard hasAPIKey else { throw TranslationError.onDeviceFailed(targetLanguage) }
+                }
             case .needsDownload:
                 do {
-                    let translated = try await translator.translate(text, to: targetLanguage, allowDownload: true)
+                    let translated = try await translator.translate(text, from: source, to: targetLanguage, allowDownload: true)
                     return Result(text: translated, engine: .onDevice)
                 } catch {
                     // Declined or failed download: OpenAI if it can, else say why.
+                    DebugLog.append("TranslationService: on-device download path failed: \(error)")
                     guard hasAPIKey else { throw TranslationError.languageNotInstalled(targetLanguage) }
                 }
             case .unsupported:
@@ -58,6 +70,19 @@ class TranslationService {
 
         let translated = try await translateViaOpenAI(text: text, to: targetLanguage)
         return Result(text: translated, engine: .openAI)
+    }
+
+    /// The source language as a locale, for any language NaturalLanguage can
+    /// name — not only the ones TalkKey offers as targets.
+    private func detectSourceLocale(of text: String) -> Locale.Language? {
+        let recognizer = NLLanguageRecognizer()
+        recognizer.processString(text)
+        guard let dominant = recognizer.dominantLanguage,
+              let confidence = recognizer.languageHypotheses(withMaximum: 1)[dominant],
+              confidence > 0.5 else {
+            return nil
+        }
+        return Locale.Language(identifier: dominant.rawValue)
     }
 
     /// The language the text is most likely written in, if it can be told.
@@ -138,6 +163,7 @@ enum TranslationError: LocalizedError {
     case apiError(String)
     case languageNotInstalled(TranslationLanguage)
     case unsupportedOnDevice(TranslationLanguage)
+    case onDeviceFailed(TranslationLanguage)
 
     var errorDescription: String? {
         switch self {
@@ -149,6 +175,8 @@ enum TranslationError: LocalizedError {
             return "Translation error: \(message)"
         case .languageNotInstalled(let language):
             return "\(language.fullName) isn't downloaded for on-device translation. Accept the download when macOS offers it, or add an OpenAI API key in Settings."
+        case .onDeviceFailed(let language):
+            return "On-device translation to \(language.fullName) failed. Re-download the language in System Settings → General → Language & Region → Translation Languages, or add an OpenAI API key in Settings."
         case .unsupportedOnDevice(let language):
             return "This Mac can't translate to \(language.fullName) on device. Add an OpenAI API key in Settings to translate online."
         }

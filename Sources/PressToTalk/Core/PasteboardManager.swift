@@ -159,21 +159,24 @@ class PasteboardManager {
     /// Types `text` over the focused field: over the selection, or over
     /// everything when `selectionOnly` is false.
     func replaceFocusedText(with text: String, selectionOnly: Bool) {
-        activateTargetApp()
-        usleep(80_000)
+        // Only wait for focus when it actually had to move.
+        if activateTargetApp() { usleep(120_000) }
         if !selectionOnly {
             postShortcut(virtualKey: 0, flags: .maskCommand) // ⌘A
-            usleep(60_000)
+            usleep(30_000)
         }
         typeText(text)
     }
 
-    private func activateTargetApp() {
-        if let bundleId = targetAppBundleId,
-           let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first,
-           !app.isActive {
-            app.activate(options: .activateIgnoringOtherApps)
-        }
+    /// Brings the target app forward if something else is in front.
+    /// Returns whether it had to.
+    @discardableResult
+    private func activateTargetApp() -> Bool {
+        guard let bundleId = targetAppBundleId,
+              let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first,
+              !app.isActive else { return false }
+        app.activate(options: .activateIgnoringOtherApps)
+        return true
     }
 
     private func focusedElement() -> AXUIElement? {
@@ -212,6 +215,17 @@ class PasteboardManager {
         pasteboard.clearContents()
         for (type, data) in saved { pasteboard.setData(data, forType: type) }
         return copied
+    }
+
+    /// Presses Enter in the target app, marked so TalkKey's own Enter tap
+    /// (Translate on Enter) lets it through.
+    func postReturn() {
+        let source = CGEventSource(stateID: .hidSystemState)
+        for down in [true, false] {
+            guard let event = CGEvent(keyboardEventSource: source, virtualKey: 36, keyDown: down) else { continue }
+            event.setIntegerValueField(.eventSourceUserData, value: EnterTranslationMode.ownEventMarker)
+            event.post(tap: .cghidEventTap)
+        }
     }
 
     private func postShortcut(virtualKey: CGKeyCode, flags: CGEventFlags) {
