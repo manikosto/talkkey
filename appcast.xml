@@ -8,6 +8,28 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.33</title>
+      <sparkle:version>2.33</sparkle:version>
+      <sparkle:shortVersionString>2.33</sparkle:shortVersionString>
+      <pubDate>Fri, 11 Sep 2026 11:40:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.33</h2>
+        <ul>
+          <li><b>The translation lands in the field.</b> Tapping a Translate-text key used to leave your text selected and unchanged, with a card offering to copy the translation. Now the text simply becomes the translation — no selection, no clipboard, no card to dismiss, in about 0.13 seconds</li>
+          <li>The replacement goes through Accessibility in one step and is verified afterwards; the keyboard fallback no longer loses every character to a stray Command flag</li>
+          <li><b>Translate on Enter</b> got the same fix and is now verified end to end: your text is translated in place and Enter is delivered after it</li>
+          <li>Errors still show a toast, and every translation is still kept in History</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.33/TalkKey.zip"
+          sparkle:edSignature="SRB1VnuH0YSLe/rmwGBHCbF3PNd0UaSUpwnz04H4DeO0FQUlfQzMrjfJ1E+ArXuKxR4y8pNrSTWb+EgbQO2ZDQ=="
+          length="4554833"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.32</title>
       <sparkle:version>2.32</sparkle:version>
       <sparkle:shortVersionString>2.32</sparkle:shortVersionString>
