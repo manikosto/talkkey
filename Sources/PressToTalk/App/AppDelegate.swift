@@ -64,6 +64,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] _ in self?.updateStatusIcon() }
             .store(in: &cancellables)
 
+        AppState.shared.$isTranslatingText
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.updateStatusIcon() }
+            .store(in: &cancellables)
+
+        // Debug hooks, for testing without a keyboard:
+        //   TALKKEY_TRANSLATE_FIELD=<lang>  translates whatever is focused
+        //   TALKKEY_TRANSLATE_TEXT=<text>   translates the text and prints it
+        let environment = ProcessInfo.processInfo.environment
+        if let code = environment["TALKKEY_TRANSLATE_FIELD"],
+           let target = TranslationLanguage(rawValue: code) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                if let text = environment["TALKKEY_TRANSLATE_TEXT"] {
+                    Task {
+                        do {
+                            let result = try await TranslationService.shared.translateDetailed(text: text, to: target)
+                            print("TRANSLATE_TEXT ok \(result.engine.label): \(result.text)")
+                        } catch {
+                            print("TRANSLATE_TEXT failed: \(error)")
+                        }
+                    }
+                } else {
+                    TextFieldTranslator.shared.translateFocusedText(to: target)
+                }
+            }
+        }
+
         // Listen for check updates notification from SwiftUI
         NotificationCenter.default.addObserver(
             self,
@@ -126,6 +153,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         controlBarItem.tag = 101
         menu.addItem(controlBarItem)
 
+        // Translate the text in whatever field is focused — the mouse route
+        // to the Translate-text key action.
+        let translateItem = NSMenuItem(title: "Translate Text in Field", action: #selector(translateFocusedField), keyEquivalent: "t")
+        translateItem.target = self
+        translateItem.tag = 102
+        menu.addItem(translateItem)
+
         // Settings
         let settingsItem = NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
@@ -158,6 +192,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else if AppState.shared.isTranscribing {
             iconName = "ellipsis.circle"
             statusText = "Transcribing..."
+        } else if AppState.shared.isTranslatingText {
+            iconName = "character.cursor.ibeam"
+            statusText = "Translating text..."
         } else if !AppState.shared.hasAPIKey {
             iconName = "mic.badge.xmark"
             statusText = "API key needed"
@@ -172,6 +209,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let menu = statusItem.menu, let statusMenuItem = menu.item(withTag: 100) {
             statusMenuItem.title = statusText
         }
+        if let item = statusItem.menu?.item(withTag: 102) {
+            item.title = "Translate Text in Field → \(SettingsManager.shared.targetLanguage.displayName)"
+        }
+    }
+
+    @objc private func translateFocusedField() {
+        if !LicenseManager.checkIsPro() {
+            ResultToastController.shared.show(
+                kind: .warning,
+                title: "Pro feature",
+                detail: "Translating text requires a Pro license."
+            )
+            return
+        }
+        TextFieldTranslator.shared.translateFocusedText(to: SettingsManager.shared.targetLanguage)
     }
 
     @objc private func openMainWindow() {

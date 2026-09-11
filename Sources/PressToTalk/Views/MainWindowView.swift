@@ -825,6 +825,41 @@ struct SettingsTab: View {
                                 .opacity(LicenseManager.shared.isPro ? 1 : 0.5)
                             }
                             .padding(14)
+
+                            Divider()
+                                .background(Theme.cardBorder)
+                                .padding(.leading, 58)
+
+                            // On-device translation (macOS 15+)
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Theme.accentCyan.opacity(0.2))
+                                        .frame(width: 32, height: 32)
+                                    Image(systemName: "lock.laptopcomputer")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(Theme.accentCyan)
+                                }
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Translate on this Mac")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(Theme.textPrimary)
+                                    Text(onDeviceTranslationHint)
+                                        .font(.system(size: 11))
+                                        .foregroundColor(Theme.textTertiary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+
+                                Spacer()
+
+                                Toggle("", isOn: $settings.onDeviceTranslationEnabled)
+                                    .toggleStyle(.switch)
+                                    .labelsHidden()
+                                    .disabled(!onDeviceTranslationSupported)
+                            }
+                            .padding(14)
+                            .opacity(onDeviceTranslationSupported ? 1 : 0.55)
                         }
                     }
 
@@ -968,6 +1003,19 @@ struct SettingsTab: View {
             .frame(maxWidth: 760)
             .frame(maxWidth: .infinity)
         }
+    }
+}
+
+extension SettingsTab {
+    var onDeviceTranslationSupported: Bool {
+        if #available(macOS 15.0, *) { return true }
+        return false
+    }
+
+    var onDeviceTranslationHint: String {
+        onDeviceTranslationSupported
+            ? "Apple's offline model: private, no API key. macOS downloads a language once; OpenAI is used only when a language isn't available on device."
+            : "Needs macOS 15 or later. Translation goes through OpenAI on this Mac."
     }
 }
 
@@ -1302,6 +1350,7 @@ struct HowToUseCard: View {
         case .directPaste: return Theme.accentGreen
         case .review: return Theme.accentPurple
         case .translation: return Theme.accentBlue
+        case .translateText: return Theme.accentCyan
         }
     }
 
@@ -1310,6 +1359,7 @@ struct HowToUseCard: View {
         case .directPaste: return "bolt.fill"
         case .review: return "wand.and.stars"
         case .translation: return "globe"
+        case .translateText: return "character.cursor.ibeam"
         }
     }
 
@@ -1318,6 +1368,7 @@ struct HowToUseCard: View {
         case .directPaste: return "Hold to record, release and the text is typed at your cursor"
         case .review: return "Hold to record, release to edit and restyle before inserting"
         case .translation: return "Hold to record and get the text translated"
+        case .translateText: return "Type in your language, tap to replace the text in the field with its translation"
         }
     }
 
@@ -1341,7 +1392,9 @@ struct HowToUseCard: View {
 
     private func row(for key: HotkeyOption) -> some View {
         let mode = settings.action(for: key)
-        let language = settings.languageOverride(for: key)
+        let language: String? = mode == .translateText
+            ? "→ \(settings.targetLanguage(for: key).displayName)"
+            : settings.languageOverride(for: key)?.displayName
 
         return HStack(spacing: 10) {
             ZStack {
@@ -1366,7 +1419,7 @@ struct HowToUseCard: View {
                         .background(tint(for: mode).opacity(0.16))
                         .cornerRadius(4)
                     if let language {
-                        Text(language.displayName)
+                        Text(language)
                             .foregroundColor(Theme.textSecondary)
                             .font(.system(size: 11))
                             .padding(.horizontal, 7)

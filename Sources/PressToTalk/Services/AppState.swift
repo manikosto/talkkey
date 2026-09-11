@@ -5,6 +5,9 @@ enum CurrentRecordingMode: CaseIterable {
     case directPaste
     case review
     case translation
+    /// Not a recording at all: tap the key and whatever is typed in the
+    /// focused field is replaced with its translation, before it is sent.
+    case translateText
 
     /// Stable identifier for storing a key's assigned action.
     var storageKey: String {
@@ -12,6 +15,7 @@ enum CurrentRecordingMode: CaseIterable {
         case .directPaste: return "directPaste"
         case .review: return "review"
         case .translation: return "translation"
+        case .translateText: return "translateText"
         }
     }
 
@@ -20,6 +24,7 @@ enum CurrentRecordingMode: CaseIterable {
         case "directPaste": self = .directPaste
         case "review": self = .review
         case "translation": self = .translation
+        case "translateText": self = .translateText
         default: return nil
         }
     }
@@ -29,8 +34,13 @@ enum CurrentRecordingMode: CaseIterable {
         case .directPaste: return "Paste"
         case .review: return "Review"
         case .translation: return "Translate"
+        case .translateText: return "Translate text"
         }
     }
+
+    /// Whether the key records audio. Translate text works on what is already
+    /// typed, so holding it must not start the microphone.
+    var recordsAudio: Bool { self != .translateText }
 
     /// Review and Translate are Pro; plain dictation is always available.
     var requiresPro: Bool { self != .directPaste }
@@ -40,6 +50,7 @@ enum CurrentRecordingMode: CaseIterable {
         case .directPaste: return "Recording"
         case .review: return "Recording (Review)"
         case .translation: return "Translating"
+        case .translateText: return "Translating text"
         }
     }
 
@@ -48,6 +59,7 @@ enum CurrentRecordingMode: CaseIterable {
         case .directPaste: return .red
         case .review: return .orange
         case .translation: return .blue
+        case .translateText: return .teal
         }
     }
 }
@@ -59,6 +71,8 @@ class AppState: ObservableObject {
     // Recording state
     @Published var isRecording = false
     @Published var isTranscribing = false
+    /// Typed text is being translated in place (the Translate text action).
+    @Published var isTranslatingText = false
     @Published var currentRecordingMode: CurrentRecordingMode = .directPaste
     @Published var recordingStartedAt: Date?
     @Published var needsModelSetup = false

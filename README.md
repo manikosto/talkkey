@@ -10,6 +10,7 @@ A native macOS voice-to-text app powered by OpenAI Whisper. Press a hotkey, spea
 - **Offline Mode** — Uses WhisperKit for on-device transcription (no internet required)
 - **Cloud Mode** — OpenAI Whisper API for higher accuracy (requires API key)
 - **Translation** — Transcribe and translate to any language with one hotkey
+- **Translate text** — Type in your own language, tap a key, and the text in the field is replaced with its translation before you send it. On-device via Apple Translation (macOS 15+), OpenAI as fallback
 - **Review Mode** — Edit and restyle text before pasting
 - **Auto Updates** — Built-in update mechanism via Sparkle
 
@@ -20,6 +21,7 @@ A native macOS voice-to-text app powered by OpenAI Whisper. Press a hotkey, spea
 | Right Cmd | Hold to record, release to transcribe & paste |
 | Right Option | Hold to record, release to open review window |
 | Fn | Hold to record with translation |
+| Any key set to *Translate text* | Tap to translate what is typed in the focused field (or just the selection) |
 | Esc | Cancel recording |
 
 ## Requirements

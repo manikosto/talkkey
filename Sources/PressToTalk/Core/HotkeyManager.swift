@@ -25,6 +25,9 @@ class HotkeyManager {
     /// Which physical key started this recording, so its model and language apply.
     private var activeHotkey: HotkeyOption = .rightCmd
     private var recordingStartTime: Date?
+    /// A Translate-text key is down. Nothing happens until every modifier is
+    /// up, so the ⌘A and typing that follow aren't mangled by a held ⌘.
+    private var pendingTextTranslationKey: HotkeyOption?
     private var isCurrentlyRecording = false  // Local tracking to avoid main actor issues
 
     private let audioRecorder = AudioRecorder.shared
@@ -57,6 +60,13 @@ class HotkeyManager {
         // Escape to cancel
         if event.keyCode == 53 {
             cancelRecording()
+            pendingTextTranslationKey = nil
+            return
+        }
+        // Any other key while a Translate-text key is held means it was used
+        // as an ordinary modifier (Right ⌘ + C), not tapped.
+        if pendingTextTranslationKey != nil {
+            pendingTextTranslationKey = nil
         }
     }
 
@@ -122,14 +132,29 @@ class HotkeyManager {
                     return
                 }
 
+                guard mode.recordsAudio else {
+                    pendingTextTranslationKey = pressedKey
+                    return
+                }
+
                 activeHotkey = pressedKey
                 switch mode {
                 case .directPaste: currentMode = .directPaste
                 case .review: currentMode = .review
                 case .translation: currentMode = .translation
+                case .translateText: return
                 }
                 isCurrentlyRecording = true
                 startRecording()
+            }
+        }
+
+        // A tapped Translate-text key fires once it is fully released.
+        if let key = pendingTextTranslationKey, !rightCmdHeld && !rightOptHeld && !fnHeld {
+            pendingTextTranslationKey = nil
+            let target = SettingsManager.shared.targetLanguage(for: key)
+            Task { @MainActor in
+                TextFieldTranslator.shared.translateFocusedText(to: target)
             }
         }
 
@@ -176,6 +201,9 @@ class HotkeyManager {
             case .directPaste: currentMode = .directPaste
             case .review: currentMode = .review
             case .translation: currentMode = .translation
+            case .translateText:
+                TextFieldTranslator.shared.translateFocusedText(to: SettingsManager.shared.targetLanguage)
+                return
             }
 
             activeHotkey = SettingsManager.shared.firstKey(for: AppState.shared.currentRecordingMode) ?? .rightCmd

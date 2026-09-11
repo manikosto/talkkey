@@ -85,14 +85,11 @@ class PasteboardManager {
         // Focus follows app activation, which was just requested.
         usleep(120_000)
 
-        let system = AXUIElementCreateSystemWide()
-        var focusedRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(system, kAXFocusedUIElementAttribute as CFString, &focusedRef) == .success,
-              CFGetTypeID(focusedRef) == AXUIElementGetTypeID() else {
-            return false
-        }
-        let element = unsafeBitCast(focusedRef, to: AXUIElement.self)
+        guard let element = focusedElement() else { return false }
+        return elementAcceptsText(element)
+    }
 
+    private func elementAcceptsText(_ element: AXUIElement) -> Bool {
         var roleRef: CFTypeRef?
         AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef)
         if let role = roleRef as? String,
@@ -117,6 +114,114 @@ class PasteboardManager {
         }
 
         return false
+    }
+
+    // MARK: - Translate text in place
+
+    /// What was found in the focused field.
+    struct FocusedText {
+        let text: String
+        /// True when the user had a selection, so only that part is replaced.
+        let isSelection: Bool
+    }
+
+    /// The selection in the focused field, or the field's whole contents.
+    ///
+    /// Accessibility is asked first. Apps that don't expose their text (some
+    /// Electron and web editors) get the keyboard route: select all, copy,
+    /// read the clipboard, put the clipboard back. Returns nil when focus
+    /// isn't on anything that looks editable — selecting all in, say, Finder
+    /// would be a surprise.
+    func captureFocusedText() -> FocusedText? {
+        guard let element = focusedElement(), elementAcceptsText(element) else { return nil }
+
+        var selectedRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(element, kAXSelectedTextAttribute as CFString, &selectedRef) == .success,
+           let selected = selectedRef as? String,
+           !selected.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return FocusedText(text: selected, isSelection: true)
+        }
+
+        var valueRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &valueRef) == .success,
+           let value = valueRef as? String,
+           !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return FocusedText(text: value, isSelection: false)
+        }
+
+        if let copied = copyAllViaKeyboard(), !copied.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return FocusedText(text: copied, isSelection: false)
+        }
+
+        return nil
+    }
+
+    /// Types `text` over the focused field: over the selection, or over
+    /// everything when `selectionOnly` is false.
+    func replaceFocusedText(with text: String, selectionOnly: Bool) {
+        activateTargetApp()
+        usleep(80_000)
+        if !selectionOnly {
+            postShortcut(virtualKey: 0, flags: .maskCommand) // ⌘A
+            usleep(60_000)
+        }
+        typeText(text)
+    }
+
+    private func activateTargetApp() {
+        if let bundleId = targetAppBundleId,
+           let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first,
+           !app.isActive {
+            app.activate(options: .activateIgnoringOtherApps)
+        }
+    }
+
+    private func focusedElement() -> AXUIElement? {
+        let system = AXUIElementCreateSystemWide()
+        var focusedRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(system, kAXFocusedUIElementAttribute as CFString, &focusedRef) == .success,
+              CFGetTypeID(focusedRef) == AXUIElementGetTypeID() else {
+            return nil
+        }
+        return unsafeBitCast(focusedRef, to: AXUIElement.self)
+    }
+
+    /// ⌘A, ⌘C, read the clipboard, then restore whatever was there.
+    private func copyAllViaKeyboard() -> String? {
+        let pasteboard = NSPasteboard.general
+        var saved: [NSPasteboard.PasteboardType: Data] = [:]
+        for type in pasteboard.types ?? [] {
+            if let data = pasteboard.data(forType: type) { saved[type] = data }
+        }
+        let changeCount = pasteboard.changeCount
+
+        postShortcut(virtualKey: 0, flags: .maskCommand) // ⌘A
+        usleep(60_000)
+        postShortcut(virtualKey: 8, flags: .maskCommand) // ⌘C
+
+        // Give the app a moment to service the copy.
+        var copied: String?
+        for _ in 0..<10 {
+            usleep(50_000)
+            if pasteboard.changeCount != changeCount {
+                copied = pasteboard.string(forType: .string)
+                break
+            }
+        }
+
+        pasteboard.clearContents()
+        for (type, data) in saved { pasteboard.setData(data, forType: type) }
+        return copied
+    }
+
+    private func postShortcut(virtualKey: CGKeyCode, flags: CGEventFlags) {
+        let source = CGEventSource(stateID: .hidSystemState)
+        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: virtualKey, keyDown: true)
+        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: virtualKey, keyDown: false)
+        keyDown?.flags = flags
+        keyUp?.flags = flags
+        keyDown?.post(tap: .cghidEventTap)
+        keyUp?.post(tap: .cghidEventTap)
     }
 
     // Paste via clipboard (for Review window - saves and restores clipboard)

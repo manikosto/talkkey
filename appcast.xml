@@ -8,6 +8,28 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.31</title>
+      <sparkle:version>2.31</sparkle:version>
+      <sparkle:shortVersionString>2.31</sparkle:shortVersionString>
+      <pubDate>Fri, 11 Sep 2026 09:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.31</h2>
+        <ul>
+          <li><b>Translate what you typed.</b> Write a message in your own language, tap a key, and the text in the field is replaced with its translation — before you press Enter. Select part of the text to translate just that</li>
+          <li>Set any key to the new <b>Translate text</b> action in Settings → Keys, with its own target language. There is also a "Translate Text in Field" item in the menu bar</li>
+          <li><b>On-device translation.</b> Uses Apple's offline translation on macOS 15 and later: private, no API key, works without internet. macOS downloads a language once when first needed</li>
+          <li>Voice translation uses the same engine, so offline mode can now translate into any language, not only English. OpenAI remains the fallback</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.31/TalkKey.zip"
+          sparkle:edSignature="+0kNEXgBzHuZeEP4EF5egtS7HcPxClcdwU0/ddPTddfTD1npIqmghPeccdQ/b1HA9kxar75bE09S/K3CY+f4BA=="
+          length="4522990"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.30</title>
       <sparkle:version>2.30</sparkle:version>
       <sparkle:shortVersionString>2.30</sparkle:shortVersionString>

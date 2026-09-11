@@ -28,7 +28,13 @@ let package = Package(
                 .product(name: "Sparkle", package: "Sparkle")
             ],
             path: "Sources/PressToTalk",
-            exclude: ["openai_whisper-small"]
+            exclude: ["openai_whisper-small"],
+            // Apple's on-device translation only exists from macOS 15; weak
+            // linking keeps the app launching on macOS 14, where the feature
+            // is gated off with #available.
+            linkerSettings: [
+                .unsafeFlags(["-Xlinker", "-weak_framework", "-Xlinker", "Translation"])
+            ]
         )
     ]
 )

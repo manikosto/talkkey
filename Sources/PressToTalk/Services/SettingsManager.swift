@@ -76,6 +76,15 @@ class SettingsManager: ObservableObject {
 
     private let alwaysCopyKey = "alwaysCopyToClipboard"
 
+    /// Translate with Apple's on-device model when the language pack is
+    /// installed, instead of sending the text to OpenAI. Nothing leaves the
+    /// Mac, it works offline, and it needs no API key. Off means OpenAI only.
+    @Published var onDeviceTranslationEnabled: Bool {
+        didSet { UserDefaults.standard.set(onDeviceTranslationEnabled, forKey: onDeviceTranslationKey) }
+    }
+
+    private let onDeviceTranslationKey = "onDeviceTranslationEnabled"
+
     // MARK: - Per-key setup
 
     /// Which key is being held for the current recording, so transcription can
@@ -147,6 +156,23 @@ class SettingsManager: ObservableObject {
     }
 
     func setLanguageOverride(_ language: WhisperLanguage?, for key: HotkeyOption) {
+        var copy = languagePerKey
+        if let language { copy[key.rawValue] = language.rawValue } else { copy.removeValue(forKey: key.rawValue) }
+        languagePerKey = copy
+    }
+
+    /// Where a Translate-text key sends the text. The key's language slot
+    /// holds the *target* for that action (the source is whatever was typed),
+    /// falling back to the main target language.
+    func targetLanguage(for key: HotkeyOption) -> TranslationLanguage {
+        guard let raw = languagePerKey[key.rawValue],
+              let language = TranslationLanguage(rawValue: raw) else {
+            return targetLanguage
+        }
+        return language
+    }
+
+    func setTargetLanguageOverride(_ language: TranslationLanguage?, for key: HotkeyOption) {
         var copy = languagePerKey
         if let language { copy[key.rawValue] = language.rawValue } else { copy.removeValue(forKey: key.rawValue) }
         languagePerKey = copy
@@ -227,6 +253,8 @@ class SettingsManager: ObservableObject {
         self.translationHotkey = TranslationHotkey(rawValue: translationHotkeyRaw) ?? .slash
 
         self.alwaysCopyToClipboard = UserDefaults.standard.bool(forKey: alwaysCopyKey)
+        // On by default: private, offline, and free.
+        self.onDeviceTranslationEnabled = UserDefaults.standard.object(forKey: onDeviceTranslationKey) as? Bool ?? true
         migratePerModeSettings()
         self.actionPerKey = UserDefaults.standard.dictionary(forKey: actionPerKeyKey) as? [String: String] ?? [:]
         self.modelPerKey = UserDefaults.standard.dictionary(forKey: modelPerKeyKey) as? [String: String] ?? [:]
@@ -595,6 +623,22 @@ enum TranslationLanguage: String, CaseIterable, Identifiable {
         case .arabic: return "Arabic"
         case .hindi: return "Hindi"
         }
+    }
+
+    /// BCP 47 tag as Apple's translation packs name it. Chinese and
+    /// Portuguese ship as regional variants, the rest as plain codes.
+    var localeIdentifier: String {
+        switch self {
+        case .chinese: return "zh-Hans"
+        case .portuguese: return "pt-BR"
+        default: return rawValue
+        }
+    }
+
+    /// The entry matching a language detected in text, ignoring region.
+    static func matching(languageCode: String) -> TranslationLanguage? {
+        let base = languageCode.split(separator: "-").first.map(String.init) ?? languageCode
+        return TranslationLanguage(rawValue: base.lowercased())
     }
 }
 

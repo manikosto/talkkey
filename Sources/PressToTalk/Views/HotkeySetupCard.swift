@@ -17,6 +17,7 @@ struct HotkeySetupCard: View {
         case .directPaste: return Theme.accentGreen
         case .review: return Theme.accentPurple
         case .translation: return Theme.accentBlue
+        case .translateText: return Theme.accentCyan
         }
     }
 
@@ -25,6 +26,7 @@ struct HotkeySetupCard: View {
         case .directPaste: return "bolt.fill"
         case .review: return "wand.and.stars"
         case .translation: return "globe"
+        case .translateText: return "character.cursor.ibeam"
         }
     }
 
@@ -103,25 +105,44 @@ struct HotkeySetupCard: View {
             .labelsHidden()
             .frame(width: 140)
 
-            Picker("", selection: languageBinding(for: key)) {
-                Text("Main language").tag("")
-                ForEach(WhisperLanguage.allCases) { lang in
-                    Text(lang.displayName).tag(lang.rawValue)
+            if mode == .translateText {
+                // This key's language slot is the *target*: the source is
+                // whatever was typed.
+                Picker("", selection: targetLanguageBinding(for: key)) {
+                    Text("Main target (\(settings.targetLanguage.displayName))").tag("")
+                    ForEach(TranslationLanguage.allCases) { lang in
+                        Text("\(lang.flag) \(lang.displayName)").tag(lang.rawValue)
+                    }
                 }
-            }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .frame(width: 132)
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .frame(width: 132)
 
-            Picker("", selection: modelBinding(for: key)) {
-                Text("Main model").tag("")
-                ForEach(installed, id: \.self) { model in
-                    Text(modelLabel(model, mode: mode)).tag(model)
+                Text("No model — works on typed text")
+                    .font(.system(size: 11))
+                    .foregroundColor(Theme.textTertiary)
+                    .frame(width: 158, alignment: .leading)
+            } else {
+                Picker("", selection: languageBinding(for: key)) {
+                    Text("Main language").tag("")
+                    ForEach(WhisperLanguage.allCases) { lang in
+                        Text(lang.displayName).tag(lang.rawValue)
+                    }
                 }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .frame(width: 132)
+
+                Picker("", selection: modelBinding(for: key)) {
+                    Text("Main model").tag("")
+                    ForEach(installed, id: \.self) { model in
+                        Text(modelLabel(model, mode: mode)).tag(model)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .frame(width: 158)
             }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .frame(width: 158)
 
             Spacer(minLength: 0)
         }
@@ -156,6 +177,13 @@ struct HotkeySetupCard: View {
         )
     }
 
+    private func targetLanguageBinding(for key: HotkeyOption) -> Binding<String> {
+        Binding(
+            get: { settings.languagePerKey[key.rawValue].flatMap { TranslationLanguage(rawValue: $0) }?.rawValue ?? "" },
+            set: { settings.setTargetLanguageOverride($0.isEmpty ? nil : TranslationLanguage(rawValue: $0), for: key) }
+        )
+    }
+
     private func languageBinding(for key: HotkeyOption) -> Binding<String> {
         Binding(
             get: { settings.languageOverride(for: key)?.rawValue ?? "" },
@@ -167,6 +195,8 @@ struct HotkeySetupCard: View {
     private var hints: some View {
         VStack(alignment: .leading, spacing: 7) {
             hint("Set two keys to Paste with different languages to dictate in either language without changing settings.")
+
+            hint("Translate text: type in your own language, tap the key, and the text in the field is replaced with the translation before you send it. Select part of the text to translate just that.")
 
             if let translateKey = HotkeyOption.allCases.first(where: {
                 settings.action(for: $0) == .translation

@@ -13,6 +13,15 @@ mkdir -p build/TalkKey.app/Contents/Resources
 cp .build/debug/PressToTalk build/TalkKey.app/Contents/MacOS/TalkKey
 chmod +x build/TalkKey.app/Contents/MacOS/TalkKey
 
+# Sparkle is a dynamic framework; without it next to the binary dyld refuses to launch.
+mkdir -p build/TalkKey.app/Contents/Frameworks
+rm -rf build/TalkKey.app/Contents/Frameworks/Sparkle.framework
+cp -R .build/debug/Sparkle.framework build/TalkKey.app/Contents/Frameworks/
+install_name_tool -add_rpath "@executable_path/../Frameworks" build/TalkKey.app/Contents/MacOS/TalkKey 2>/dev/null || true
+# Editing the load commands invalidates the linker's ad-hoc signature, and
+# macOS then kills the process at launch (SIGKILL, Code Signature Invalid).
+codesign --force --deep --sign - build/TalkKey.app
+
 cat > build/TalkKey.app/Contents/Info.plist << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

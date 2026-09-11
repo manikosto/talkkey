@@ -17,6 +17,7 @@ struct ControlBarView: View {
         case .directPaste: return Color(red: 1.0, green: 0.33, blue: 0.24)
         case .review: return Color(red: 0.72, green: 0.47, blue: 1.0)
         case .translation: return Color(red: 0.33, green: 0.62, blue: 1.0)
+        case .translateText: return Color(red: 0.30, green: 0.78, blue: 0.80)
         }
     }
 
