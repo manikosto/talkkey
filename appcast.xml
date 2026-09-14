@@ -8,6 +8,27 @@
 
     <!-- Latest version -->
     <item>
+      <title>Version 2.34</title>
+      <sparkle:version>2.34</sparkle:version>
+      <sparkle:shortVersionString>2.34</sparkle:shortVersionString>
+      <pubDate>Mon, 14 Sep 2026 09:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's New in 2.34</h2>
+        <ul>
+          <li><b>Translate on Enter is gone.</b> It made typing lag: to catch Enter it had to inspect every key you pressed before the app you were typing into saw it, so a busy app stalled the whole keyboard</li>
+          <li>It was also far too easy to switch on by accident — resting on a Translate-text key armed whatever app was in front, and Enter would start sending your messages translated</li>
+          <li><b>Tapping a Translate-text key still translates what is in the field</b>, exactly as before. Nothing else changed, and anything left from the old per-app setting is cleared on launch</li>
+        </ul>
+      ]]></description>
+      <enclosure
+          url="https://github.com/manikosto/talkkey/releases/download/v2.34/TalkKey.zip"
+          sparkle:edSignature="DlkXethq7Mm/TX3qsG50iR9B6YRgTYa0rOTDk4r345samy1vfISykgZX77eWWYwFmpCHi1dffwwNFQjaFzK1DQ=="
+          length="4535583"
+          type="application/octet-stream"/>
+    </item>
+
+    <item>
       <title>Version 2.33</title>
       <sparkle:version>2.33</sparkle:version>
       <sparkle:shortVersionString>2.33</sparkle:shortVersionString>
