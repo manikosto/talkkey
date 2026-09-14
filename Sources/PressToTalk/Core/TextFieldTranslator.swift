@@ -42,7 +42,7 @@ final class TextFieldTranslator {
     }
 
     private func run(target: TranslationLanguage, quietSuccess: Bool) async -> Outcome {
-        print("TextFieldTranslator: target=\(target.rawValue) trusted=\(AXIsProcessTrusted())")
+        DebugLog.append("TextFieldTranslator: target=\(target.rawValue) trusted=\(AXIsProcessTrusted())")
         guard AXIsProcessTrusted() else {
             ResultToastController.shared.show(
                 kind: .warning,

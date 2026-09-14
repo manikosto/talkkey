@@ -254,25 +254,6 @@ class PasteboardManager {
         return copied
     }
 
-    /// Presses Enter in the target app, marked so TalkKey's own Enter tap
-    /// (Translate on Enter) lets it through.
-    func postReturn() {
-        // The marker goes on the source: the event field of the same name is
-        // filled in from it, and writing it on the event directly produced an
-        // event the window server quietly dropped.
-        let source = CGEventSource(stateID: .hidSystemState)
-        source?.userData = EnterTranslationMode.ownEventMarker
-        for down in [true, false] {
-            guard let event = CGEvent(keyboardEventSource: source, virtualKey: 36, keyDown: down) else {
-                DebugLog.append("postReturn: could not create event (down=\(down))")
-                continue
-            }
-            event.flags = []
-            event.post(tap: .cghidEventTap)
-            DebugLog.append("postReturn: posted (down=\(down))")
-        }
-    }
-
     private func postShortcut(virtualKey: CGKeyCode, flags: CGEventFlags) {
         let source = CGEventSource(stateID: .hidSystemState)
         let keyDown = CGEvent(keyboardEventSource: source, virtualKey: virtualKey, keyDown: true)

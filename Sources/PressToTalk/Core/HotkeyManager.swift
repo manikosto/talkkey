@@ -28,10 +28,6 @@ class HotkeyManager {
     /// A Translate-text key is down. Nothing happens until every modifier is
     /// up, so the ⌘A and typing that follow aren't mangled by a held ⌘.
     private var pendingTextTranslationKey: HotkeyOption?
-    /// Fires if that key is still held after `holdToToggleDelay`: holding,
-    /// rather than tapping, switches Translate on Enter for the current app.
-    private var holdToToggleTimer: Timer?
-    private let holdToToggleDelay: TimeInterval = 0.7
     private var isCurrentlyRecording = false  // Local tracking to avoid main actor issues
 
     private let audioRecorder = AudioRecorder.shared
@@ -138,16 +134,6 @@ class HotkeyManager {
 
                 guard mode.recordsAudio else {
                     pendingTextTranslationKey = pressedKey
-                    holdToToggleTimer?.invalidate()
-                    holdToToggleTimer = Timer.scheduledTimer(withTimeInterval: holdToToggleDelay, repeats: false) { [weak self] _ in
-                        guard let self, self.pendingTextTranslationKey == pressedKey else { return }
-                        // Consumed as a hold: the release must not translate.
-                        self.pendingTextTranslationKey = nil
-                        let target = SettingsManager.shared.targetLanguage(for: pressedKey)
-                        Task { @MainActor in
-                            EnterTranslationMode.shared.toggleForFrontmostApp(target: target)
-                        }
-                    }
                     return
                 }
 
@@ -184,8 +170,6 @@ class HotkeyManager {
 
     private func clearPendingTextTranslation() {
         pendingTextTranslationKey = nil
-        holdToToggleTimer?.invalidate()
-        holdToToggleTimer = nil
     }
 
     private func checkHotkey(hotkey: HotkeyOption, flags: NSEvent.ModifierFlags, keyCode: UInt16, wasPressed: Bool) -> (pressed: Bool, released: Bool) {
