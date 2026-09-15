@@ -1,0 +1,16 @@
+[Unit]
+Description=TalkKey — hold a key, speak, and the text appears where you are typing
+Documentation=https://github.com/manikosto/talkkey
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/talkkey run
+Restart=on-failure
+RestartSec=5
+# The portals need the session bus and the compositor, both of which the
+# user session already provides.
+
+[Install]
+WantedBy=graphical-session.target
