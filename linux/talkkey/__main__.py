@@ -19,7 +19,8 @@ def _line(status: str, label: str, detail: str = "") -> None:
     print(f"[{status}] {label}" + (f"\n         {detail}" if detail else ""))
 
 
-async def _check_portals() -> tuple[bool, bool]:
+async def _check_portals(uses_shortcuts_portal: bool,
+                         uses_remote_portal: bool) -> tuple[bool, bool]:
     from .portal import Portal
 
     portal = Portal()
@@ -36,21 +37,29 @@ async def _check_portals() -> tuple[bool, bool]:
         return False, False
 
     found = []
-    for name, label, hint in (
+    for name, label, hint, used in (
         (
             "org.freedesktop.portal.GlobalShortcuts",
             "GlobalShortcuts portal (the hotkeys)",
             "Needs KDE Plasma 6.1+ or GNOME 48+. Check with: echo $XDG_CURRENT_DESKTOP",
+            uses_shortcuts_portal,
         ),
         (
             "org.freedesktop.portal.RemoteDesktop",
             "RemoteDesktop portal (delivering the text)",
             "Install xdg-desktop-portal-kde or xdg-desktop-portal-gnome, "
             "then log out and back in.",
+            uses_remote_portal,
         ),
     ):
         present = f'"{name}"' in described
-        _line(OK if present else BAD, label, "" if present else hint)
+        if not used:
+            # Present or not, it is not on the path this machine will take —
+            # saying "ok" alone would imply it mattered.
+            _line(OK if present else WARN, label,
+                  "not used here" + ("" if present else ", and absent"))
+        else:
+            _line(OK if present else BAD, label, "" if present else hint)
         found.append(present)
     return found[0], found[1]
 
@@ -79,10 +88,25 @@ def _check_hotkeys(cfg: config_mod.Config) -> bool:
     return True
 
 
+def _on_x11() -> bool:
+    return not (
+        os.environ.get("XDG_SESSION_TYPE") == "wayland"
+        or os.environ.get("WAYLAND_DISPLAY")
+    )
+
+
 def _check_input(cfg: config_mod.Config) -> bool:
     method = _resolve(cfg)
     if method == "portal":
-        _line(OK, "Sending keys", "through the RemoteDesktop portal")
+        if cfg.input_method == "auto" and _on_x11():
+            # Reached by falling back, not by choosing. It does work, but it
+            # costs a permission dialog that xdotool would not.
+            _line(WARN, "Sending keys",
+                  "falling back to the RemoteDesktop portal because xdotool is "
+                  "missing.\n         On X11 xdotool is simpler and asks for "
+                  "nothing:  sudo apt install xdotool")
+        else:
+            _line(OK, "Sending keys", "through the RemoteDesktop portal")
         return True
     if shutil.which(method):
         _line(OK, "Sending keys", f"through {method}")
@@ -197,19 +221,20 @@ def doctor() -> int:
     audio_ok = _check_audio()
     speech_ok = _check_speech(cfg)
     translate_ok = _check_translation(cfg)
-    shortcuts_ok, remote_ok = asyncio.run(_check_portals())
-
-    # Each portal only matters when it is actually the route being used.
     from .hotkeys import choose_backend
 
+    # Each portal only matters when it is actually the route being taken.
+    uses_shortcuts_portal = choose_backend(cfg.hotkey_backend) == "portal"
+    uses_remote_portal = _resolve(cfg) == "portal"
+    shortcuts_ok, remote_ok = asyncio.run(
+        _check_portals(uses_shortcuts_portal, uses_remote_portal)
+    )
+
     required = [clip_ok, audio_ok, speech_ok, input_ok, hotkeys_ok]
-    if _resolve(cfg) == "portal":
+    if uses_remote_portal:
         required.append(remote_ok)
-    if choose_backend(cfg.hotkey_backend) == "portal":
+    if uses_shortcuts_portal:
         required.append(shortcuts_ok)
-    elif not shortcuts_ok:
-        _line(WARN, "GlobalShortcuts portal",
-              "absent, but not needed — the keys are caught directly on X11")
     print()
     if all(required):
         extra = "" if translate_ok else " (translation is not set up, dictation is)"

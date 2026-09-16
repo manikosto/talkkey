@@ -36,7 +36,7 @@ dictate = "CTRL+ALT+d"          # speak, and the text is typed where you are
 translate_field = "CTRL+ALT+t"  # replace the text in the field with a translation
 # How the keys are caught:
 #   "auto"   — listen directly on X11, use the portal on Wayland
-#   "x11"    — listen directly; needs pip install 'talkkey-linux[x11]'
+#   "x11"    — listen directly (X11 only)
 #   "portal" — the GlobalShortcuts portal; the only option on Wayland, and
 #              it binds nothing at all on KDE Plasma 5
 backend = "auto"

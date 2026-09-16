@@ -38,7 +38,7 @@ sudo pacman -S wl-clipboard portaudio libnotify xdotool             # Arch
 # The program, in its own environment
 git clone https://github.com/manikosto/talkkey.git ~/talkkey
 python3 -m venv ~/.local/share/talkkey-venv
-~/.local/share/talkkey-venv/bin/pip install -e "$HOME/talkkey/linux[local,cloud,x11]"
+~/.local/share/talkkey-venv/bin/pip install -e "$HOME/talkkey/linux[local,cloud]"
 mkdir -p ~/.local/bin
 ln -sf ~/.local/share/talkkey-venv/bin/talkkey ~/.local/bin/talkkey
 ```
@@ -70,6 +70,20 @@ once. On X11 there is no second dialog — xdotool needs no permission.
 Then: hold **Ctrl+Alt+D**, say something, let go. The text appears where
 your cursor is. **Ctrl+Alt+T** replaces the text in the field with its
 translation.
+
+## Translation needs a key, dictation does not
+
+Speech recognition runs on this machine and needs nothing. Translation does
+not, so until a key is set `talkkey doctor` reports translation as missing
+while everything else is ready — that is the expected state, and dictation
+works.
+
+```bash
+echo 'export OPENAI_API_KEY="sk-..."' >> ~/.profile   # then log out and back in
+```
+
+Or put it in the config under `[openai] api_key`. For no key at all, see
+Argos below.
 
 ## Settings
 

@@ -99,8 +99,8 @@ class Shortcuts:
                 "the desktop accepted the shortcuts but bound none of them.\n"
                 "That is what KDE Plasma 5 does — its global shortcuts portal is "
                 "unfinished, and Plasma 5.27 is what Ubuntu 24.04 ships.\n"
-                "On an X11 session set  backend = \"x11\"  under [hotkeys] in the "
-                "config and install it with:  pip install 'talkkey-linux[x11]'\n"
+                "On an X11 session set  backend = \"x11\"  under [hotkeys] in "
+                "the config; the keys are then caught without the portal.\n"
                 "On Wayland this needs Plasma 6.1 or newer, or GNOME 48 or newer."
             )
         return self._describe(shortcuts_bound)
