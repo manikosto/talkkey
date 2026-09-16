@@ -13,7 +13,8 @@ Translation, none of which exist on Linux. What is shared is the idea.
 
 | | macOS | Linux |
 |---|---|---|
-| Hotkey | hold a bare modifier, e.g. Right ⌘ | a **combination**, e.g. Ctrl+Alt+D — the portal cannot bind a lone modifier |
+| Hotkey | hold a bare modifier, e.g. Right ⌘ | a **combination**, e.g. Ctrl+Alt+D — neither route can bind a lone modifier |
+| Catching the hotkey | event tap | listened for directly on X11, the GlobalShortcuts portal on Wayland |
 | Text delivery | typed in, or Accessibility | **clipboard + Ctrl+V**, and the clipboard is put back |
 | Sending that Ctrl+V | — | xdotool on X11, the RemoteDesktop portal on Wayland |
 | Reading the field | Accessibility | Ctrl+A, Ctrl+C, clipboard restored |
@@ -37,7 +38,7 @@ sudo pacman -S wl-clipboard portaudio libnotify xdotool             # Arch
 # The program, in its own environment
 git clone https://github.com/manikosto/talkkey.git ~/talkkey
 python3 -m venv ~/.local/share/talkkey-venv
-~/.local/share/talkkey-venv/bin/pip install -e "$HOME/talkkey/linux[local,cloud]"
+~/.local/share/talkkey-venv/bin/pip install -e "$HOME/talkkey/linux[local,cloud,x11]"
 mkdir -p ~/.local/bin
 ln -sf ~/.local/share/talkkey-venv/bin/talkkey ~/.local/bin/talkkey
 ```
@@ -103,11 +104,52 @@ These cover what can be checked without a desktop: the config, language
 detection, audio encoding, the portal interface descriptions, and the
 regression test for the crash that stopped the first Linux run.
 
+## If the hotkey does nothing
+
+The most likely cause is **KDE Plasma 5**, which ships in Ubuntu 24.04. Its
+global shortcuts portal is unfinished: `BindShortcuts` opens the KDE settings
+window, reports success, and binds nothing at all, so the key press never
+arrives and the program sits there looking ready.
+
+On an X11 session this is routed around entirely — the keys are listened for
+directly and the portal is never involved. That is the default there. Check
+what `talkkey doctor` says next to "Catching the hotkeys"; if it names the
+portal on an X11 machine, force it:
+
+```toml
+[hotkeys]
+backend = "x11"
+```
+
+On Wayland there is no way around it, and Plasma 6.1 or GNOME 48 is the
+floor. TalkKey now refuses to start rather than pretending, if the desktop
+accepts the shortcuts and binds none of them.
+
+**Listening is not grabbing.** On X11 the combination still reaches the
+window underneath, so choose one nothing else wants.
+
+## If it complains about libcublas
+
+```
+Library libcublas.so.12 is not found or cannot be loaded
+```
+
+faster-whisper found an NVIDIA card and went looking for CUDA. It now falls
+back to the CPU and says so rather than failing, so this is a message and
+not a stop. To silence it, set `device = "cpu"` under `[speech]`. To use the
+GPU for real:
+
+```bash
+~/.local/share/talkkey-venv/bin/pip install nvidia-cublas-cu12 nvidia-cudnn-cu12
+```
+
+Then set `device = "cuda"` and `compute_type = "float16"`.
+
 ## Requirements and known limits
 
-- **KDE Plasma 6.1+ or GNOME 48+** for the global shortcuts portal. Older
-  versions do not offer it, and `talkkey doctor` will say so. This is needed
-  on X11 as well — the portal is what owns the hotkeys either way.
+- **On Wayland: KDE Plasma 6.1+ or GNOME 48+**, for the global shortcuts
+  portal. There is no alternative there. On X11 any version will do, because
+  the portal is not used.
 - The portal's own description of itself cannot be parsed: it contains a
   property named `power-saver-enabled`, and a D-Bus member name may not hold
   a hyphen. The interfaces we need are described in `talkkey/introspection.py`

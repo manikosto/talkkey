@@ -24,7 +24,13 @@ class TalkKey:
         self.config = config
         self.portal = Portal()
         self.injector = Injector(self.portal, config)
-        self.shortcuts = hotkeys.Shortcuts(self.portal)
+        self.hotkey_backend = hotkeys.choose_backend(config.hotkey_backend)
+        if self.hotkey_backend == "x11":
+            from .hotkeys_x11 import X11Shortcuts
+
+            self.shortcuts = X11Shortcuts()
+        else:
+            self.shortcuts = hotkeys.Shortcuts(self.portal)
         self.recorder = audio_mod.Recorder()
         self.transcriber = Transcriber(config)
         self.translator = Translator(config)
@@ -37,7 +43,7 @@ class TalkKey:
             bound = await self.shortcuts.start(
                 self.config.dictate_shortcut, self.config.translate_shortcut
             )
-        except PortalError as exc:
+        except Exception as exc:  # noqa: BLE001 - every startup failure reads the same
             notify.error("TalkKey could not start", str(exc))
             print(f"talkkey: {exc}")
             return 1

@@ -43,11 +43,28 @@ class Transcriber:
 
         print(f"talkkey: loading the {self.config.speech_model} model "
               "(the first run downloads it, which takes a while)…")
-        self._model = WhisperModel(
-            self.config.speech_model,
-            device="auto",
-            compute_type=self.config.compute_type,
-        )
+
+        wanted = self.config.speech_device
+        try:
+            self._model = WhisperModel(
+                self.config.speech_model,
+                device=wanted,
+                compute_type=self.config.compute_type,
+            )
+        except Exception as exc:  # noqa: BLE001 - CTranslate2 raises bare RuntimeError
+            if wanted == "cpu":
+                raise TranscriptionError(f"the speech model would not load: {exc}") from exc
+            # "auto" picks the GPU on any machine with an NVIDIA card, whether
+            # or not the CUDA libraries are actually installed, and then dies
+            # on libcublas. The CPU is slower but always there.
+            print(f"talkkey: no usable GPU ({exc}); using the CPU instead.")
+            print("talkkey: to silence this, set device = \"cpu\" under [speech]. "
+                  "For the GPU: pip install nvidia-cublas-cu12 nvidia-cudnn-cu12")
+            self._model = WhisperModel(
+                self.config.speech_model,
+                device="cpu",
+                compute_type="int8",
+            )
         return self._model
 
     def transcribe(self, samples: np.ndarray) -> str:

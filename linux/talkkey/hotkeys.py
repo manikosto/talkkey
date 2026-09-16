@@ -12,6 +12,7 @@ there — so whatever ends up bound is reported back rather than assumed.
 
 from __future__ import annotations
 
+import os
 from typing import Callable
 
 from dbus_next import Variant
@@ -22,6 +23,21 @@ IFACE = "org.freedesktop.portal.GlobalShortcuts"
 
 DICTATE = "dictate"
 TRANSLATE_FIELD = "translate-field"
+
+
+def choose_backend(configured: str) -> str:
+    """Which way the hotkeys are caught, when the config says "auto".
+
+    X11 lets a client listen to the keyboard itself, which sidesteps the
+    portal entirely — worth doing, because the Plasma 5 portal binds
+    nothing. Wayland has no alternative to the portal.
+    """
+    if configured != "auto":
+        return configured
+    wayland = os.environ.get("XDG_SESSION_TYPE") == "wayland" or bool(
+        os.environ.get("WAYLAND_DISPLAY")
+    )
+    return "portal" if wayland else "x11"
 
 
 class Shortcuts:
@@ -74,7 +90,20 @@ class Shortcuts:
             )
 
         bound = await self.portal.call(bind, bind_token)
-        return self._describe(bound.get("shortcuts") or [])
+        shortcuts_bound = bound.get("shortcuts") or []
+        if not shortcuts_bound:
+            # KDE Plasma 5 answers BindShortcuts successfully, opens its
+            # settings window, and binds nothing. Reported as success, the
+            # app would sit there looking ready while no key ever arrived.
+            raise PortalError(
+                "the desktop accepted the shortcuts but bound none of them.\n"
+                "That is what KDE Plasma 5 does — its global shortcuts portal is "
+                "unfinished, and Plasma 5.27 is what Ubuntu 24.04 ships.\n"
+                "On an X11 session set  backend = \"x11\"  under [hotkeys] in the "
+                "config and install it with:  pip install 'talkkey-linux[x11]'\n"
+                "On Wayland this needs Plasma 6.1 or newer, or GNOME 48 or newer."
+            )
+        return self._describe(shortcuts_bound)
 
     @staticmethod
     def _describe(bound) -> list[str]:

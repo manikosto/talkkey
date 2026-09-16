@@ -18,7 +18,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from talkkey import audio, config as config_mod, introspection  # noqa: E402
-from talkkey.hotkeys import Shortcuts  # noqa: E402
+from talkkey.hotkeys import Shortcuts, choose_backend  # noqa: E402
+from talkkey.hotkeys_x11 import X11Shortcuts, to_pynput  # noqa: E402
 from talkkey.inject import _ydotool_code, resolve_method  # noqa: E402
 from talkkey.translate import Translator, language_name  # noqa: E402
 
@@ -121,6 +122,8 @@ def test_default_config_matches_the_dataclass(fresh_config):
     assert cfg.speech_engine == "local"
     assert cfg.translate_target == "en"
     assert cfg.input_method == "auto"
+    assert cfg.hotkey_backend == "auto"
+    assert cfg.speech_device == "auto"
 
 
 def test_edits_are_read_and_omissions_keep_defaults(fresh_config):
@@ -230,3 +233,126 @@ def test_auto_falls_back_to_the_portal_when_xdotool_is_absent(monkeypatch):
 
 def test_ydotool_codes_are_real_input_event_codes():
     assert (_ydotool_code("a"), _ydotool_code("c"), _ydotool_code("v")) == (30, 46, 47)
+
+
+# -- catching the hotkeys ---------------------------------------------
+
+def test_hotkey_backend_auto_follows_the_session(monkeypatch):
+    monkeypatch.setenv("XDG_SESSION_TYPE", "wayland")
+    assert choose_backend("auto") == "portal"
+    monkeypatch.setenv("XDG_SESSION_TYPE", "x11")
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    assert choose_backend("auto") == "x11"
+
+
+def test_hotkey_backend_respects_an_explicit_choice(monkeypatch):
+    monkeypatch.setenv("XDG_SESSION_TYPE", "x11")
+    assert choose_backend("portal") == "portal"
+
+
+@pytest.mark.parametrize(
+    "trigger,expected",
+    [
+        ("CTRL+ALT+d", "<ctrl>+<alt>+d"),
+        ("ctrl+alt+D", "<ctrl>+<alt>+d"),
+        ("SUPER+q", "<cmd>+q"),
+        ("CTRL+SHIFT+F5", "<ctrl>+<shift>+<f5>"),
+        ("ALT+space", "<alt>+<space>"),
+    ],
+)
+def test_shortcut_translated_to_pynput(trigger, expected):
+    assert to_pynput(trigger) == expected
+
+
+def test_empty_shortcut_is_refused():
+    from talkkey.hotkeys_x11 import X11ShortcutError
+
+    with pytest.raises(X11ShortcutError):
+        to_pynput("  ")
+
+
+def test_hold_to_talk_fires_once_on_press_and_once_on_release():
+    """The state machine, driven with stand-in keys rather than real ones."""
+    shortcuts = X11Shortcuts()
+    shortcuts._listener = type("L", (), {"canonical": staticmethod(lambda key: key)})()
+    shortcuts._combos = {"dictate": frozenset({"ctrl", "alt", "d"})}
+    pressed, released = [], []
+    shortcuts._loop = type("Loop", (), {
+        "call_soon_threadsafe": staticmethod(lambda fn, arg: fn(arg))
+    })()
+    shortcuts.on_press = pressed.append
+    shortcuts.on_release = released.append
+
+    shortcuts._pressed("ctrl")
+    shortcuts._pressed("alt")
+    assert pressed == []            # not yet complete
+    shortcuts._pressed("d")
+    assert pressed == ["dictate"]
+    shortcuts._pressed("d")         # key repeat must not fire again
+    assert pressed == ["dictate"]
+    assert released == []
+
+    shortcuts._released("d")
+    assert released == ["dictate"]
+    shortcuts._released("ctrl")     # letting go of the rest changes nothing
+    shortcuts._released("alt")
+    assert released == ["dictate"]
+
+
+def test_an_unrelated_key_does_not_fire_the_shortcut():
+    shortcuts = X11Shortcuts()
+    shortcuts._listener = type("L", (), {"canonical": staticmethod(lambda key: key)})()
+    shortcuts._combos = {"dictate": frozenset({"ctrl", "alt", "d"})}
+    fired = []
+    shortcuts._loop = type("Loop", (), {
+        "call_soon_threadsafe": staticmethod(lambda fn, arg: fn(arg))
+    })()
+    shortcuts.on_press = fired.append
+
+    for key in ("ctrl", "shift", "d", "x"):
+        shortcuts._pressed(key)
+    assert fired == []
+
+
+def test_control_characters_fold_back_to_their_letter():
+    """Ctrl+D reaches us as \x04; matched against `d` it must still fire."""
+    from pynput import keyboard
+
+    shortcuts = X11Shortcuts()
+    shortcuts._keyboard = keyboard
+    listener = keyboard.Listener(on_press=lambda k: None)
+    shortcuts._listener = listener
+
+    assert shortcuts._canonical(keyboard.KeyCode.from_char("\x04")) == \
+        keyboard.KeyCode.from_char("d")
+    assert shortcuts._canonical(keyboard.KeyCode.from_char("\x01")) == \
+        keyboard.KeyCode.from_char("a")
+    assert shortcuts._canonical(keyboard.KeyCode.from_char("\x1a")) == \
+        keyboard.KeyCode.from_char("z")
+    # Ordinary keys and modifiers are left exactly as pynput normalised them.
+    assert shortcuts._canonical(keyboard.KeyCode.from_char("D")) == \
+        keyboard.KeyCode.from_char("d")
+    assert shortcuts._canonical(keyboard.Key.ctrl_r) == listener.canonical(keyboard.Key.ctrl_l)
+
+
+def test_ctrl_alt_d_matches_when_the_letter_arrives_as_a_control_character():
+    """End to end through the state machine, with what X11 really sends."""
+    from pynput import keyboard
+
+    shortcuts = X11Shortcuts()
+    shortcuts._keyboard = keyboard
+    shortcuts._listener = keyboard.Listener(on_press=lambda k: None)
+    shortcuts._combos = {"dictate": frozenset(keyboard.HotKey.parse("<ctrl>+<alt>+d"))}
+    fired, let_go = [], []
+    shortcuts._loop = type("Loop", (), {
+        "call_soon_threadsafe": staticmethod(lambda fn, arg: fn(arg))
+    })()
+    shortcuts.on_press = fired.append
+    shortcuts.on_release = let_go.append
+
+    shortcuts._pressed(keyboard.Key.ctrl_l)
+    shortcuts._pressed(keyboard.Key.alt_l)
+    shortcuts._pressed(keyboard.KeyCode.from_char("\x04"))   # Ctrl+D, as sent
+    assert fired == ["dictate"]
+    shortcuts._released(keyboard.KeyCode.from_char("\x04"))
+    assert let_go == ["dictate"]

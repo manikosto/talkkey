@@ -61,6 +61,24 @@ def _resolve(cfg: config_mod.Config) -> str:
     return resolve_method(cfg.input_method)
 
 
+def _check_hotkeys(cfg: config_mod.Config) -> bool:
+    from .hotkeys import choose_backend
+
+    backend = choose_backend(cfg.hotkey_backend)
+    if backend == "x11":
+        try:
+            import pynput  # noqa: F401
+        except Exception as exc:  # noqa: BLE001 - pynput raises more than ImportError
+            _line(BAD, "Catching the hotkeys",
+                  f"listening directly on X11 needs pynput ({exc})\n"
+                  "         pip install 'talkkey-linux[x11]'")
+            return False
+        _line(OK, "Catching the hotkeys", "listening directly (X11)")
+        return True
+    _line(OK, "Catching the hotkeys", "through the GlobalShortcuts portal")
+    return True
+
+
 def _check_input(cfg: config_mod.Config) -> bool:
     method = _resolve(cfg)
     if method == "portal":
@@ -174,16 +192,24 @@ def doctor() -> int:
               "notify-send is missing, so messages go to the terminal only "
               "(sudo apt install libnotify-bin)")
 
+    hotkeys_ok = _check_hotkeys(cfg)
     input_ok = _check_input(cfg)
     audio_ok = _check_audio()
     speech_ok = _check_speech(cfg)
     translate_ok = _check_translation(cfg)
     shortcuts_ok, remote_ok = asyncio.run(_check_portals())
 
-    # The RemoteDesktop portal only matters when it is the route being used.
-    required = [clip_ok, audio_ok, speech_ok, input_ok, shortcuts_ok]
+    # Each portal only matters when it is actually the route being used.
+    from .hotkeys import choose_backend
+
+    required = [clip_ok, audio_ok, speech_ok, input_ok, hotkeys_ok]
     if _resolve(cfg) == "portal":
         required.append(remote_ok)
+    if choose_backend(cfg.hotkey_backend) == "portal":
+        required.append(shortcuts_ok)
+    elif not shortcuts_ok:
+        _line(WARN, "GlobalShortcuts portal",
+              "absent, but not needed — the keys are caught directly on X11")
     print()
     if all(required):
         extra = "" if translate_ok else " (translation is not set up, dictation is)"

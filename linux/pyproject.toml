@@ -1,6 +1,6 @@
 [project]
 name = "talkkey-linux"
-version = "0.1.1"
+version = "0.2.0"
 description = "Hold a key, speak, and the text lands in whatever you are typing in — for KDE Plasma and GNOME on Wayland"
 requires-python = ">=3.10"
 dependencies = [
@@ -14,6 +14,8 @@ dependencies = [
 local = ["faster-whisper>=1.0.0"]
 # Cloud speech recognition and translation.
 cloud = ["openai>=1.30"]
+# Catching the hotkeys on X11 without the portal — needed on KDE Plasma 5.
+x11 = ["pynput>=1.7.6"]
 # Offline translation, so a translation key works without an API key.
 offline-translate = ["argostranslate>=1.9"]
 

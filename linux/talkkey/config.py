@@ -30,17 +30,25 @@ DEFAULT_CONFIG = """\
 # TalkKey for Linux
 
 [hotkeys]
-# The portal can only bind key combinations, not a lone modifier, so these
-# are combos. Hold one down, speak, let go. Your desktop shows a dialog the
-# first time asking you to confirm or change them.
+# These are combinations, not a single modifier: neither way of catching a
+# global key on Linux can bind a lone Alt. Hold one down, speak, let go.
 dictate = "CTRL+ALT+d"          # speak, and the text is typed where you are
 translate_field = "CTRL+ALT+t"  # replace the text in the field with a translation
+# How the keys are caught:
+#   "auto"   — listen directly on X11, use the portal on Wayland
+#   "x11"    — listen directly; needs pip install 'talkkey-linux[x11]'
+#   "portal" — the GlobalShortcuts portal; the only option on Wayland, and
+#              it binds nothing at all on KDE Plasma 5
+backend = "auto"
 
 [speech]
 # "local" runs faster-whisper on this machine; "openai" sends audio to the API.
 engine = "local"
 model = "small"                 # tiny | base | small | medium | large-v3
 language = "auto"               # auto, or a code such as ru / en / uk
+# "cpu" always works. "cuda" needs the NVIDIA libraries; "auto" tries the GPU
+# and falls back to the CPU rather than failing if they are missing.
+device = "auto"
 compute_type = "int8"           # int8 is the safe CPU default; float16 for a GPU
 
 [translate]
@@ -70,10 +78,12 @@ restore_delay = 0.4
 class Config:
     dictate_shortcut: str = "CTRL+ALT+d"
     translate_shortcut: str = "CTRL+ALT+t"
+    hotkey_backend: str = "auto"
 
     speech_engine: str = "local"
     speech_model: str = "small"
     speech_language: str = "auto"
+    speech_device: str = "auto"
     compute_type: str = "int8"
 
     translate_engine: str = "openai"
@@ -115,11 +125,13 @@ def load() -> Config:
     hotkeys = raw.get("hotkeys", {})
     cfg.dictate_shortcut = hotkeys.get("dictate", cfg.dictate_shortcut)
     cfg.translate_shortcut = hotkeys.get("translate_field", cfg.translate_shortcut)
+    cfg.hotkey_backend = hotkeys.get("backend", cfg.hotkey_backend)
 
     speech = raw.get("speech", {})
     cfg.speech_engine = speech.get("engine", cfg.speech_engine)
     cfg.speech_model = speech.get("model", cfg.speech_model)
     cfg.speech_language = speech.get("language", cfg.speech_language)
+    cfg.speech_device = speech.get("device", cfg.speech_device)
     cfg.compute_type = speech.get("compute_type", cfg.compute_type)
 
     translate = raw.get("translate", {})
