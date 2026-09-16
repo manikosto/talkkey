@@ -36,3 +36,5 @@ AuthKey_*.p8
 .vscode/
 linux/**/__pycache__/
 linux/*.egg-info/
+linux/dist/
+linux/build/
