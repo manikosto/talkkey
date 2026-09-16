@@ -6,6 +6,10 @@ signal on that path. The subscription has to exist before the call is made,
 or a fast portal can answer before anyone is listening — hence the token is
 chosen up front and the path derived from it rather than taken from the
 method's return value.
+
+Nothing here asks the portal to describe itself; see `introspection.py` for
+why that cannot be done. The interface descriptions are ours, so the proxies
+are built without a round trip and no interface we do not use can break us.
 """
 
 from __future__ import annotations
@@ -13,8 +17,11 @@ from __future__ import annotations
 import asyncio
 import secrets
 
-from dbus_next import BusType, Variant
+from dbus_next import BusType, Message, Variant
 from dbus_next.aio import MessageBus
+from dbus_next.introspection import Node
+
+from . import introspection
 
 PORTAL_BUS = "org.freedesktop.portal.Desktop"
 PORTAL_PATH = "/org/freedesktop/portal/desktop"
@@ -28,23 +35,51 @@ class PortalError(RuntimeError):
 class Portal:
     def __init__(self) -> None:
         self.bus: MessageBus | None = None
-        self._introspection = None
+        self._nodes: dict[str, Node] = {}
 
     async def connect(self) -> None:
         self.bus = await MessageBus(bus_type=BusType.SESSION).connect()
-        self._introspection = await self.bus.introspect(PORTAL_BUS, PORTAL_PATH)
 
-    def interface(self, name: str):
-        if self.bus is None or self._introspection is None:
+    def _node(self, iface_name: str) -> Node:
+        if iface_name not in self._nodes:
+            xml = introspection.BY_NAME.get(iface_name)
+            if xml is None:
+                raise PortalError(f"no description on file for {iface_name}")
+            self._nodes[iface_name] = Node.parse(xml)
+        return self._nodes[iface_name]
+
+    def interface(self, name: str, path: str = PORTAL_PATH):
+        if self.bus is None:
             raise PortalError("portal not connected")
-        obj = self.bus.get_proxy_object(PORTAL_BUS, PORTAL_PATH, self._introspection)
+        obj = self.bus.get_proxy_object(PORTAL_BUS, path, self._node(name))
+        return obj.get_interface(name)
+
+    async def raw_introspect(self) -> str:
+        """The portal's own description, as text.
+
+        Returned unparsed on purpose: it contains a property name with a
+        hyphen that no D-Bus parser will accept. Searching the text is how
+        `doctor` can honestly report which portals this desktop offers.
+        """
+        if self.bus is None:
+            raise PortalError("portal not connected")
+        reply = await self.bus.call(
+            Message(
+                destination=PORTAL_BUS,
+                path=PORTAL_PATH,
+                interface="org.freedesktop.DBus.Introspectable",
+                member="Introspect",
+            )
+        )
+        if reply is None or not reply.body:
+            raise PortalError("the portal service did not describe itself")
+        return reply.body[0]
+
+    async def has_interface(self, name: str) -> bool:
         try:
-            return obj.get_interface(name)
-        except Exception as exc:  # noqa: BLE001 - surfaced with context below
-            raise PortalError(
-                f"this desktop does not offer {name}. "
-                "On KDE it needs Plasma 6.1 or newer, on GNOME version 48 or newer."
-            ) from exc
+            return f'"{name}"' in await self.raw_introspect()
+        except Exception:  # noqa: BLE001 - absence is the answer
+            return False
 
     def new_token(self) -> str:
         return "talkkey_" + secrets.token_hex(8)
@@ -64,9 +99,7 @@ class Portal:
         loop = asyncio.get_running_loop()
         answered: asyncio.Future = loop.create_future()
 
-        introspection = await self.bus.introspect(PORTAL_BUS, request_path)
-        request_obj = self.bus.get_proxy_object(PORTAL_BUS, request_path, introspection)
-        request = request_obj.get_interface(REQUEST_IFACE)
+        request = self.interface(REQUEST_IFACE, path=request_path)
 
         def on_response(code: int, results: dict) -> None:
             if not answered.done():

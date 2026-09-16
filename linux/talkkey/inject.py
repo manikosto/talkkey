@@ -6,15 +6,19 @@ a virtual-keyboard protocol that KDE does not offer. What does work
 everywhere is the clipboard plus a single Ctrl+V, because the only keys
 being synthesised are then Control and V.
 
-Ctrl+V itself goes through the RemoteDesktop portal, which both KDE and
-GNOME implement and which asks the user for permission once. The session is
-persistent: the token it hands back is kept so later runs are not asked
-again. ydotool remains selectable for anyone who would rather not grant it.
+How Ctrl+V is sent depends on the session. On X11 xdotool does it directly,
+with nothing to grant and nothing to go wrong. On Wayland that is not
+allowed, so it goes through the RemoteDesktop portal, which KDE and GNOME
+both implement and which asks permission once — the token it hands back is
+kept so later runs are not asked again. ydotool stays available for anyone
+who would rather not grant that; it is only ever asked for ASCII keys, which
+is the one thing it does reliably.
 """
 
 from __future__ import annotations
 
 import asyncio
+import os
 import shutil
 import subprocess
 
@@ -36,12 +40,17 @@ class Injector:
         self.portal = portal
         self.config = config
         self.session_handle: str | None = None
+        self.method = resolve_method(config.input_method)
         self._token_path = state_dir() / "remote-desktop-token"
 
     # -- setup ---------------------------------------------------------
 
     async def start(self) -> None:
-        if self.config.input_method == "ydotool":
+        if self.method == "xdotool":
+            if not shutil.which("xdotool"):
+                raise PortalError("input.method is 'xdotool' but xdotool is not installed")
+            return
+        if self.method == "ydotool":
             if not shutil.which("ydotool"):
                 raise PortalError(
                     "input.method is 'ydotool' but ydotool is not installed. "
@@ -102,10 +111,21 @@ class Injector:
 
     async def control_combo(self, keysym: int) -> None:
         """Hold Control, tap one key, let go."""
-        if self.config.input_method == "ydotool":
-            name = {keysyms.V: "v", keysyms.A: "a", keysyms.C: "c"}[keysym]
-            subprocess.run(["ydotool", "key", f"29:1", f"{_ydotool_code(name)}:1",
-                            f"{_ydotool_code(name)}:0", "29:0"], check=False, timeout=5)
+        letter = {keysyms.V: "v", keysyms.A: "a", keysyms.C: "c"}[keysym]
+
+        if self.method == "xdotool":
+            subprocess.run(
+                ["xdotool", "key", "--clearmodifiers", f"ctrl+{letter}"],
+                check=False, timeout=5,
+            )
+            return
+
+        if self.method == "ydotool":
+            code = _ydotool_code(letter)
+            subprocess.run(
+                ["ydotool", "key", "29:1", f"{code}:1", f"{code}:0", "29:0"],
+                check=False, timeout=5,
+            )
             return
 
         await self._keysym(keysyms.CONTROL_L, keysyms.PRESSED)
@@ -152,6 +172,23 @@ class Injector:
         if previous:
             clipboard.write(previous)
         return captured
+
+
+def resolve_method(configured: str) -> str:
+    """Pick how keys are sent, when the config says "auto".
+
+    X11 lets any client synthesise input, so xdotool is both simpler and
+    surer than asking a portal for permission. Wayland forbids it, which is
+    what the RemoteDesktop portal exists to mediate.
+    """
+    if configured != "auto":
+        return configured
+    wayland = os.environ.get("XDG_SESSION_TYPE") == "wayland" or bool(
+        os.environ.get("WAYLAND_DISPLAY")
+    )
+    if not wayland and shutil.which("xdotool"):
+        return "xdotool"
+    return "portal"
 
 
 def _ydotool_code(letter: str) -> int:

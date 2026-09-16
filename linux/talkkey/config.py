@@ -55,9 +55,12 @@ speech_model = "whisper-1"
 text_model = "gpt-4o-mini"
 
 [input]
-# How Ctrl+V is delivered. "portal" works on KDE and GNOME and is asked for
-# once; "ydotool" needs the ydotool daemon and access to /dev/uinput.
-method = "portal"
+# How Ctrl+V is delivered.
+#   "auto"    — xdotool on X11, the RemoteDesktop portal on Wayland
+#   "xdotool" — X11 only, nothing to grant
+#   "portal"  — RemoteDesktop portal; asks permission once, then remembers
+#   "ydotool" — needs the ydotool daemon and access to /dev/uinput
+method = "auto"
 # Pause after the paste before the clipboard is put back, in seconds.
 restore_delay = 0.4
 """
@@ -80,7 +83,7 @@ class Config:
     openai_speech_model: str = "whisper-1"
     openai_text_model: str = "gpt-4o-mini"
 
-    input_method: str = "portal"
+    input_method: str = "auto"
     restore_delay: float = 0.4
 
     path: Path = field(default_factory=lambda: config_dir() / "config.toml")

@@ -1,6 +1,6 @@
 [project]
 name = "talkkey-linux"
-version = "0.1.0"
+version = "0.1.1"
 description = "Hold a key, speak, and the text lands in whatever you are typing in — for KDE Plasma and GNOME on Wayland"
 requires-python = ">=3.10"
 dependencies = [

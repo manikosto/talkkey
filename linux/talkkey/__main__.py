@@ -29,7 +29,13 @@ async def _check_portals() -> tuple[bool, bool]:
         _line(BAD, "Desktop portals", f"could not reach the portal service: {exc}")
         return False, False
 
-    have_shortcuts = have_remote = False
+    try:
+        described = await portal.raw_introspect()
+    except Exception as exc:  # noqa: BLE001 - reported, not raised
+        _line(BAD, "Desktop portals", f"the portal service did not answer: {exc}")
+        return False, False
+
+    found = []
     for name, label, hint in (
         (
             "org.freedesktop.portal.GlobalShortcuts",
@@ -43,17 +49,32 @@ async def _check_portals() -> tuple[bool, bool]:
             "then log out and back in.",
         ),
     ):
-        try:
-            portal.interface(name)
-        except Exception:  # noqa: BLE001 - absence is the answer
-            _line(BAD, label, hint)
-        else:
-            _line(OK, label)
-            if "GlobalShortcuts" in name:
-                have_shortcuts = True
-            else:
-                have_remote = True
-    return have_shortcuts, have_remote
+        present = f'"{name}"' in described
+        _line(OK if present else BAD, label, "" if present else hint)
+        found.append(present)
+    return found[0], found[1]
+
+
+def _resolve(cfg: config_mod.Config) -> str:
+    from .inject import resolve_method
+
+    return resolve_method(cfg.input_method)
+
+
+def _check_input(cfg: config_mod.Config) -> bool:
+    method = _resolve(cfg)
+    if method == "portal":
+        _line(OK, "Sending keys", "through the RemoteDesktop portal")
+        return True
+    if shutil.which(method):
+        _line(OK, "Sending keys", f"through {method}")
+        return True
+    hint = {
+        "xdotool": "sudo apt install xdotool",
+        "ydotool": "sudo apt install ydotool, and add yourself to the input group",
+    }.get(method, "")
+    _line(BAD, "Sending keys", f"{method} is not installed\n         {hint}")
+    return False
 
 
 def _check_audio() -> bool:
@@ -153,12 +174,16 @@ def doctor() -> int:
               "notify-send is missing, so messages go to the terminal only "
               "(sudo apt install libnotify-bin)")
 
+    input_ok = _check_input(cfg)
     audio_ok = _check_audio()
     speech_ok = _check_speech(cfg)
     translate_ok = _check_translation(cfg)
     shortcuts_ok, remote_ok = asyncio.run(_check_portals())
 
-    required = [clip_ok, audio_ok, speech_ok, shortcuts_ok, remote_ok]
+    # The RemoteDesktop portal only matters when it is the route being used.
+    required = [clip_ok, audio_ok, speech_ok, input_ok, shortcuts_ok]
+    if _resolve(cfg) == "portal":
+        required.append(remote_ok)
     print()
     if all(required):
         extra = "" if translate_ok else " (translation is not set up, dictation is)"

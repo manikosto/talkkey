@@ -15,6 +15,7 @@ Translation, none of which exist on Linux. What is shared is the idea.
 |---|---|---|
 | Hotkey | hold a bare modifier, e.g. Right ⌘ | a **combination**, e.g. Ctrl+Alt+D — the portal cannot bind a lone modifier |
 | Text delivery | typed in, or Accessibility | **clipboard + Ctrl+V**, and the clipboard is put back |
+| Sending that Ctrl+V | — | xdotool on X11, the RemoteDesktop portal on Wayland |
 | Reading the field | Accessibility | Ctrl+A, Ctrl+C, clipboard restored |
 | Local speech | WhisperKit (CoreML) | faster-whisper |
 | Translation | Apple Translation, on device | OpenAI, or Argos offline |
@@ -28,16 +29,22 @@ everywhere, because the only keys synthesised are Control and V.
 ## Install
 
 ```bash
-# System pieces
-sudo apt install wl-clipboard libportaudio2 libnotify-bin   # Debian, Ubuntu
-sudo dnf install wl-clipboard portaudio libnotify           # Fedora
-sudo pacman -S wl-clipboard portaudio libnotify             # Arch
+# System pieces. xdotool is only for X11, and is what makes it simplest there.
+sudo apt install wl-clipboard libportaudio2 libnotify-bin xdotool   # Debian, Ubuntu
+sudo dnf install wl-clipboard portaudio libnotify xdotool           # Fedora
+sudo pacman -S wl-clipboard portaudio libnotify xdotool             # Arch
 
 # The program, in its own environment
+git clone https://github.com/manikosto/talkkey.git ~/talkkey
 python3 -m venv ~/.local/share/talkkey-venv
-~/.local/share/talkkey-venv/bin/pip install -e /path/to/press-to-talk/linux[local,cloud]
-ln -s ~/.local/share/talkkey-venv/bin/talkkey ~/.local/bin/talkkey
+~/.local/share/talkkey-venv/bin/pip install -e "$HOME/talkkey/linux[local,cloud]"
+mkdir -p ~/.local/bin
+ln -sf ~/.local/share/talkkey-venv/bin/talkkey ~/.local/bin/talkkey
 ```
+
+**Quote that pip line.** In zsh the square brackets are a glob pattern, so
+without the quotes the extras are dropped or the command fails outright —
+and then there is no speech recognition and no translation.
 
 Then check the machine before running anything:
 
@@ -55,9 +62,9 @@ talkkey run
 ```
 
 The **first run opens a dialog from KDE or GNOME** listing the shortcuts and
-asking you to confirm them, and a second asking permission to send
-keystrokes. Accept both. The second is remembered, so you are only asked
-once.
+asking you to confirm them. On Wayland a second dialog asks permission to
+send keystrokes; accept it too, and it is remembered so you are only asked
+once. On X11 there is no second dialog — xdotool needs no permission.
 
 Then: hold **Ctrl+Alt+D**, say something, let go. The text appears where
 your cursor is. **Ctrl+Alt+T** replaces the text in the field with its
@@ -85,10 +92,26 @@ systemctl --user enable --now talkkey
 journalctl --user -u talkkey -f    # to watch what it does
 ```
 
+## Tests
+
+```bash
+~/.local/share/talkkey-venv/bin/pip install pytest
+~/.local/share/talkkey-venv/bin/python -m pytest linux/tests -q
+```
+
+These cover what can be checked without a desktop: the config, language
+detection, audio encoding, the portal interface descriptions, and the
+regression test for the crash that stopped the first Linux run.
+
 ## Requirements and known limits
 
 - **KDE Plasma 6.1+ or GNOME 48+** for the global shortcuts portal. Older
-  versions do not offer it, and `talkkey doctor` will say so.
+  versions do not offer it, and `talkkey doctor` will say so. This is needed
+  on X11 as well — the portal is what owns the hotkeys either way.
+- The portal's own description of itself cannot be parsed: it contains a
+  property named `power-saver-enabled`, and a D-Bus member name may not hold
+  a hyphen. The interfaces we need are described in `talkkey/introspection.py`
+  instead, so nothing the desktop adds later can break startup.
 - **Replacing the text in a field selects all of it first.** If the focus is
   not really a text field, Ctrl+A can select a whole page. Anything over
   5000 characters is refused rather than replaced, but this is the roughest
